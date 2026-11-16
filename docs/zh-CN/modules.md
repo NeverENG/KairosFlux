@@ -45,7 +45,7 @@
 | 模块 | 阅读入口 |
 | --- | --- |
 | [service/](../../service/) | `Node`、KV 服务、v1/v2 路由和时态存储的装配；区分普通 PUT 与版本化操作。 |
-| [service/ingesthook/](../../service/ingesthook/) | 写入前的数据过滤与验证入口；这里的 hook **不是** Agent 工具注册。 |
+| [service/ingesthook/](../../service/ingesthook/) | 写入前帧与 schema 校验入口；生产默认不启用字段脱敏和设备时间戳规则。这里的 hook **不是** Agent 工具注册。 |
 | [service/ingesthook/schema/](../../service/ingesthook/schema/) | 已注册类型的数据契约加载与行情校验。 |
 | [storage/](../../storage/) | MemTable、WAL 之外的 LSM/SSTable、范围扫描、压缩；单机 WAL 的装配在 `service/`。 |
 | [internal/temporal/](../../internal/temporal/) | 不依赖存储/网络的版本键、as-of 和指纹语义。 |

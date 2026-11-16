@@ -6,6 +6,7 @@ package kairosflux_test
 // 测试全部用独立临时数据目录，不触碰进程级 config.G 与仓库 log/ 目录。
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	kairosflux "github.com/ChronoBrew/KairosFlux"
+	"github.com/ChronoBrew/KairosFlux/client"
 	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
@@ -202,6 +204,35 @@ func TestEngineServeNetworkShell(t *testing.T) {
 	vv, found, err := e.GetAsOf("quote:2026-08-17:510300", time.Now().UnixNano()+1e9)
 	if err != nil || !found || string(vv.Payload) != string(quoteJSON) {
 		t.Fatalf("embedded 视角读网络写入 = found=%v payload=%q err=%v", found, vv.Payload, err)
+	}
+}
+
+// TestEngineServePreservesUntypedResearchWrites verifies the default network write
+// path stores untyped research data as supplied instead of applying device rules.
+func TestEngineServePreservesUntypedResearchWrites(t *testing.T) {
+	e, err := kairosflux.Serve(kairosflux.Options{DataDir: mustDataDir(t), Port: freePort(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	c, err := client.New(client.Options{Addrs: []string{e.Addr()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	ctx := context.Background()
+	for _, tc := range []struct{ key, value string }{
+		{"research:run:100", `{"gps":"raw-location","user_id":"analyst-1"}`},
+		{"research:run:99", `{"gps":"older-location","user_id":"analyst-1"}`},
+	} {
+		if err := c.Put(ctx, []byte(tc.key), []byte(tc.value)); err != nil {
+			t.Errorf("PUT %s was rejected: %v", tc.key, err)
+			continue
+		}
+		got, err := c.Get(ctx, []byte(tc.key))
+		if err != nil || string(got) != tc.value {
+			t.Errorf("GET %s: got %q, want %q, err=%v", tc.key, got, tc.value, err)
+		}
 	}
 }
 
