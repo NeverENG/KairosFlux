@@ -11,7 +11,7 @@ package service
 // 走 kairnet 新路径 AddHandler/SetV2Handler（Router 概念已从传输层 API
 // 撤出，见 kairnet/handler.go 顶部注释）。
 //
-// 进程外组件不在 Node 范围内：internal/jobctl 的版本化客户端由
+// 进程外组件不在 Node 范围内：internal/researchdata 的版本化客户端由
 // cmd/kairosflux-import-registry 与 internal/aiplane 使用；与服务器衔接靠
 // internal/identity 的 source 契约（协议层强制，见
 // RouterV2.handlePutVersioned），不挂载进服务器进程。

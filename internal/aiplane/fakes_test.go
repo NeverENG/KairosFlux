@@ -7,7 +7,7 @@ import (
 	"github.com/ChronoBrew/KairosFlux/proto"
 )
 
-// fakeReadWriter 是 ReadWriter 的内存实现，语义与生产环境的 jobctl.V2Store
+// fakeReadWriter 是 ReadWriter 的内存实现，语义与生产环境的 researchdata.V2Store
 // （backed by service.TemporalStore）刻意保持一致：
 //   - PutVersioned 永不覆盖，每次调用产生一个新的递增 seq；
 //   - GetAsOf 返回"写入时刻（这里用调用方显式传入的 fakeClock 逻辑时钟，
@@ -16,10 +16,7 @@ import (
 //     LIST_WRITES 的审计语义一致——折叠交给 LatestPerLogicalKey（生产/
 //     测试共用同一份折叠实现，见 store.go）。
 //
-// 与 internal/jobctl/fakes_test.go 的 fakeStore 同一模式（内存 map + 互斥
-// 锁），本包独立维护一份而不是导出复用 jobctl 内部的 fakeStore：那是
-// jobctl 包的测试专用类型（未导出），且缺少 WriteNanos/前缀扫描能力，直接
-// 复用需要先改 jobctl 测试代码，超出本次任务"新增能力不动无关代码"的范围。
+// 本测试替身实现按写入时间读取与前缀扫描；导入器的 fakeStore 不提供这些能力。
 type fakeReadWriter struct {
 	mu    sync.Mutex
 	clock int64 // 逻辑写入时钟：每次 PutVersioned 自增 1，不是真实纳秒

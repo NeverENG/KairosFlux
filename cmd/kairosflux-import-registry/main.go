@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
 func main() { os.Exit(run(os.Args[1:])) }
@@ -30,9 +30,9 @@ func run(args []string) int {
 		return 1
 	}
 	defer f.Close()
-	store := jobctl.NewV2Store(*addr, *timeout)
+	store := researchdata.NewV2Store(*addr, *timeout)
 	defer store.Close()
-	result, err := (&jobctl.RegistryImporter{Store: store}).ImportReader(f)
+	result, err := (&researchdata.RegistryImporter{Store: store}).ImportReader(f)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "import failed: %v\n", err)
 		return 1

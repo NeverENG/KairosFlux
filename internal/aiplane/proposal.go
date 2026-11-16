@@ -63,9 +63,7 @@ type Proposal struct {
 	Detail json.RawMessage `json:"detail,omitempty"`
 }
 
-// ProposalValidationError 是提议字段校验失败的结构化描述（与
-// internal/jobctl.ValidationError 同一设计原则：字段名+原因，不靠字符串
-// 子串判断哪里错了）。
+// ProposalValidationError 是提议字段校验失败的结构化描述（字段名+原因）。
 type ProposalValidationError struct {
 	Field  string
 	Reason string

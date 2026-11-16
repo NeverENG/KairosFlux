@@ -1,4 +1,4 @@
-package jobctl
+package researchdata
 
 // Store is the minimal versioned-write/read interface used by the QuantBrew registry importer.
 type Store interface {

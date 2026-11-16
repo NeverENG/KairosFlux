@@ -29,13 +29,13 @@ const (
 )
 
 // engineSource 是本包以引擎身份写入时落在 WriteEnvelope.source 上的标识，
-// 与 internal/jobctl.EngineSource 同一模式（不同组件各自声明一个 plain
+// 与 internal/researchdata.EngineSource 同一模式（不同组件各自声明一个 plain
 // 字符串，"没有 agent: 前缀"即可落 RoleEngine，见 identity.SourceRole）。
 const engineSource = "aiplane"
 
 // ObjectKind 是本包管理的对象种类枚举（对应方案 §3.2 对象模型表的子集：
 // M4 范围只新增 Proposal/FactorSimilarity/证据边三类，其余 kind 沿用既有
-// 数据：Experiment 记录沿用 jobctl 的 strategy:index 前缀，
+// 数据：Experiment 记录沿用 researchdata 的 strategy:index 前缀，
 // 见 doc.go "已知边界"一节）。枚举表达角色/种类，不用字符串前缀匹配承载
 // 语义——WriteAsAgent 的判断只对 ObjectKind 做 == 比较，不解析 logicalKey
 // 字符串本身去猜它是什么种类的对象。
@@ -92,7 +92,7 @@ func WriteAsAgent(w Writer, kind ObjectKind, agentID, logicalKey string, payload
 // 具名函数而不是调用方直接调 Writer.PutVersioned：让"这次写入以引擎身份
 // 发生"在调用点显式可见，与 WriteAsAgent 对称，日后如果要接入审计（比如
 // 记录哪些写入来自引擎自动裁决 vs 人工操作）有唯一的插入点。source 固定为
-// engineSource（"aiplane"），与 jobctl.EngineSource（"jobctl"）同一模式——
+// engineSource（"aiplane"），与 researchdata.EngineSource（"jobctl"）同一模式——
 // 两个引擎组件各自声明一个不带 "agent:" 前缀的 plain 名字，足以让
 // identity.SourceRole 判定为 RoleEngine，服务端不需要维护一份组件名白名单。
 func WriteAsEngine(w Writer, kind ObjectKind, logicalKey string, payload []byte) (uint64, error) {

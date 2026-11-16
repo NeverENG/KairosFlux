@@ -3,9 +3,9 @@ package aiplane
 // M4 端到端验收测试："agent 能回答'amihud 测过几次、判决是什么、进了哪个
 // 策略、模拟盘如何'——用真实迁入的 M31 注册表数据做端到端测试"（任务书
 // 附加纪律）。起一个真实的 KairosFlux v2 服务端（与 cmd/kairosflux-server
-// 同样的接线，服务端起法复制自 internal/jobctl/v2store_integration_test.go
+// 同样的接线，服务端起法复制自 internal/researchdata/v2store_integration_test.go
 // 的 startTestKairosFluxServer——本包在 service 包之外，不能直接调用那个
-// 测试专用的非导出函数，自己拼一遍），用 jobctl.RegistryImporter 真实导入
+// 测试专用的非导出函数，自己拼一遍），用 researchdata.RegistryImporter 真实导入
 // QuantBrew 的 experiments/registry.jsonl，再用 aiplane 的 Context/证据图谱
 // 查询能力对真实导入的数据作答。
 //
@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/ChronoBrew/KairosFlux/config"
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 	"github.com/ChronoBrew/KairosFlux/kairnet"
 	"github.com/ChronoBrew/KairosFlux/proto"
 	"github.com/ChronoBrew/KairosFlux/service"
@@ -41,8 +41,8 @@ func quantBrewRegistryPath(t *testing.T) string {
 	return defaultQuantBrewRegistryPath
 }
 
-// startTestKairosFluxServer 复制自 internal/jobctl/v2store_integration_test.go
-// 的同名函数（该函数未导出，本包在 jobctl 包之外，无法直接复用，只能按
+// startTestKairosFluxServer 复制自 internal/researchdata/v2store_integration_test.go
+// 的同名函数（该函数未导出，本包在 researchdata 包之外，无法直接复用，只能按
 // 同样的接线自己拼一遍——两处重复的是"如何起一个测试用真实服务端"这段装配
 // 代码，不是业务逻辑，保持与既有先例一致）。
 func startTestKairosFluxServer(t *testing.T) string {
@@ -108,7 +108,7 @@ func TestEvidenceChain_EndToEnd_RealRegistryData_AnswersAmihudQuestions(t *testi
 	}
 
 	addr := startTestKairosFluxServer(t)
-	store := jobctl.NewV2Store(addr, 5*time.Second)
+	store := researchdata.NewV2Store(addr, 5*time.Second)
 	defer store.Close()
 
 	// 第一步：真实导入（不是构造 fixture）。
@@ -117,7 +117,7 @@ func TestEvidenceChain_EndToEnd_RealRegistryData_AnswersAmihudQuestions(t *testi
 		t.Fatalf("打开 registry.jsonl 失败: %v", err)
 	}
 	defer f.Close()
-	importer := &jobctl.RegistryImporter{Store: store}
+	importer := &researchdata.RegistryImporter{Store: store}
 	result, err := importer.ImportReader(f)
 	if err != nil {
 		t.Fatalf("导入失败: %v", err)

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
 // 证据图谱键布局（任务书第 4 项："factor -> experiment -> strategy -> paper
@@ -138,8 +138,8 @@ func LinkPaperToReview(rw ReadWriter, paperName, reviewID string) error {
 // 既有的命名歧义）。
 
 type StrategyObject struct {
-	Name  string               `json:"name"`
-	Phase jobctl.StrategyPhase `json:"phase"`
+	Name  string                     `json:"name"`
+	Phase researchdata.StrategyPhase `json:"phase"`
 }
 
 type PaperAccountObject struct {

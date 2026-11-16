@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
-// ExperimentRecord 是 strategy:index:{fingerprint}（M3 jobctl.RegistryImporter
+// ExperimentRecord 是 strategy:index:{fingerprint}（M3 researchdata.RegistryImporter
 // 从 QuantBrew experiments/registry.jsonl 导入的实验/verdict 记录，见
 // doc.go"已知边界"关于这个键名与方案对象模型不完全对齐的说明）解析出的
 // 结构化视图。字段对应 QuantBrew SPEC-M31 的 verdict 结构（本仓库不拥有
@@ -38,7 +38,7 @@ type registryVerdictEnvelope struct {
 }
 
 // parseExperimentRecord 从 strategy:index:{fingerprint} 的原始 payload
-// （即 registry.jsonl 该行原始字节，见 jobctl.RegistryImporter 的导入
+// （即 registry.jsonl 该行原始字节，见 researchdata.RegistryImporter 的导入
 // 逻辑）解析出 ExperimentRecord。
 func parseExperimentRecord(raw []byte) (ExperimentRecord, bool) {
 	var env registryVerdictEnvelope
@@ -50,7 +50,7 @@ func parseExperimentRecord(raw []byte) (ExperimentRecord, bool) {
 
 // LookupExperiment 按 fingerprint 读取单条实验记录。
 func LookupExperiment(reader AsOfReader, fingerprint string, asOfNanos int64) (ExperimentRecord, bool, error) {
-	raw, found, err := reader.GetAsOf(jobctl.RegistryIndexKey(fingerprint), asOfNanos)
+	raw, found, err := reader.GetAsOf(researchdata.RegistryIndexKey(fingerprint), asOfNanos)
 	if err != nil {
 		return ExperimentRecord{}, false, err
 	}
@@ -67,9 +67,9 @@ func LookupExperiment(reader AsOfReader, fingerprint string, asOfNanos int64) (E
 // ListExperiments 枚举 strategy:index: 前缀下全部已导入的实验记录（每个
 // fingerprint 的最新版本），按 Fingerprint 字典序排序——Context API"测过
 // 哪些因子"依赖的基础数据源。解析失败的记录跳过，不中断整体查询（与
-// jobctl.RegistryImporter 导入阶段"单行出错不影响其它行"同一原则）。
+// researchdata.RegistryImporter 导入阶段"单行出错不影响其它行"同一原则）。
 func ListExperiments(lister PrefixLister, asOfNanos int64) ([]ExperimentRecord, error) {
-	entries, err := lister.ListPrefix(jobctl.RegistryIndexPrefix(), asOfNanos)
+	entries, err := lister.ListPrefix(researchdata.RegistryIndexPrefix(), asOfNanos)
 	if err != nil {
 		return nil, fmt.Errorf("扫描 strategy:index 失败: %w", err)
 	}

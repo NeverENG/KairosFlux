@@ -92,7 +92,7 @@ func (e *SuspectDuplicateError) Error() string {
 
 // RecordSimilarity 计算 factorA/factorB 的皮尔逊相关系数并以引擎身份存边
 // （factor:similarity:{a}|{b}，见 SimilarityKey）。幂等：与已存的边内容
-// 完全相同则跳过写入（不产生新版本），与 jobctl.RegistryImporter 的幂等
+// 完全相同则跳过写入（不产生新版本），与 researchdata.RegistryImporter 的幂等
 // 判据同一模式。
 func RecordSimilarity(rw ReadWriter, factorA, factorB string, returnsA, returnsB []float64) (SimilarityEdge, error) {
 	if factorA == factorB {

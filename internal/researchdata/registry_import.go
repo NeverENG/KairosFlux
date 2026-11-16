@@ -1,4 +1,4 @@
-package jobctl
+package researchdata
 
 import (
 	"bufio"

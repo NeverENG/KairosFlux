@@ -1,4 +1,4 @@
-package jobctl
+package researchdata
 
 // V2Store integration test runs a real v2 server for versioned registry imports.
 //

@@ -17,7 +17,7 @@
 //     不是底层存储只发生一次扫描，也不引入图数据库。
 //  5. Agent 产出（推荐/复盘）落成 Proposal 对象，由确定性管道裁决。
 //
-// 依赖关系：本包依赖 internal/jobctl（复用其 Store 接口形状与 V2Store 的
+// 依赖关系：本包依赖 internal/researchdata（复用其 Store 接口形状与 V2Store 的
 // GetAsOf/ListPrefix 能力）与 internal/temporal（Fingerprint 风格一致的
 // 确定性指纹方法）。不新增协议 opcode——Proposal/FactorSimilarity/证据边
 // 全部走既有 PUT_VERSIONED/GET_AS_OF/LIST_WRITES opcode 上的新键空间前缀
