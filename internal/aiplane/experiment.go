@@ -93,11 +93,7 @@ func ListExperiments(lister PrefixLister, asOfNanos int64) ([]ExperimentRecord, 
 // 拥有的 schema）目前没有一个结构化的"这条实验测的是哪个/哪些因子"字段——
 // 因子名只出现在 hypothesis_summary/core_metrics.winning_params_summary
 // 这类拼接好的展示字符串里（如 "factors=[amihud_illiq(lb=20,w=1)]"）。
-// 本仓库 CLAUDE.md 明令禁止"用字符串匹配承载语义"，但那条禁令针对的是
-// "决策/裁决输入"（如本包 AdmitFactorEvidence 的 factor 参数，必须来自
-// Proposal.FactorName 等结构化字段，见 evidence.go 文档）；这里是一个
-// 只读的、明确标注为"关键词提及检索"的搜索工具，检索结果不反向驱动任何
-// 准入判定，属于诚实标注的近似能力，不是被禁止的那类胶水。
+// 这里只提供关键词提及检索，不将文本命中用于结构化证据关系或上游决策。
 //
 // 发现的歧义（写进最终报告，不在本次任务里修正）：理想情况下 QuantBrew
 // 的 registry.jsonl 应该新增一个结构化的 factors []string 字段，届时本函数

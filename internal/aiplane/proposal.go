@@ -47,11 +47,7 @@ type Proposal struct {
 	// service/router_v2.go 的角色判定（是否带 "agent:" 前缀），不改变
 	// "能不能写"这件事本身仍然只由 kind==KindProposal 决定。
 	SubmittedBy string `json:"submitted_by"`
-	// FactorName 是结构化的因子标识：Kind==ProposalFactor 时必填。这是
-	// FactorSimilarity/证据图谱查询定位"这个提议是关于哪个因子"的唯一
-	// 依据——engine 侧任何需要知道"这是什么因子"的逻辑（AdmitFactorEvidence
-	// 的入参）必须读这个字段，禁止从 Summary 等自由文本里解析因子名（那是
-	// 本仓库明令禁止的"字符串匹配承载语义"）。
+	// FactorName 是因子提议的结构化标识，供调用方关联相似度和证据记录。
 	FactorName string `json:"factor_name,omitempty"`
 	// ExperimentFingerprint 是结构化的实验指纹引用：Kind==ProposalExperiment
 	// 或需要关联既有实验记录（strategy:index:{fingerprint}）时填写。
@@ -145,13 +141,8 @@ func ProposalKey(fingerprint string) string {
 	return identity.ProposalKeyPrefix + fingerprint
 }
 
-// SubmitProposal 是 Proposal API 的唯一入口：校验 -> 算指纹 -> 幂等写入
-// proposal:{fingerprint}。刻意不在这里做 FactorSimilarity 检查——任务书
-// 原文把"相关性>0.7 拒绝"限定在"进证据关"这一步（AdmitFactorEvidence，
-// evidence.go），不是"能不能提交提议"这一步：agent 应该始终能够提交任何
-// 假设，哪怕它后来被引擎判定为重复因子而拒绝进证据关。二者是"能提议"与
-// "提议是否被采信"两件事，任务书原文的分句结构（"Proposal API：...；
-// FactorSimilarity：...相关性>0.7...拒绝进证据关"）也印证了这一点。
+// SubmitProposal 校验、计算指纹并幂等写入 proposal:{fingerprint}。
+// 是否采纳提议由上游决定；数据库不把相似度或证据链接作为提交门禁。
 //
 // 权限：本函数内部调用 WriteAsAgent（kind 固定为 KindProposal），故只能被
 // agent 身份使用；不提供 engine 直接篡改既有 Proposal 内容的路径（Proposal

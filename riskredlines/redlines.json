@@ -7,11 +7,6 @@
       "applies_to_phase": ""
     },
     {
-      "id": "factor_similarity_gate",
-      "description": "两个因子收益相关性 >0.7 时，后进入证据关的一方自动标记 suspect_duplicate 并拒绝 AdmitFactorEvidence，不得进入证据图谱。",
-      "applies_to_phase": "gate"
-    },
-    {
       "id": "no_live_without_paper_pass",
       "description": "上游策略要求先通过模拟盘（Paper）验证，才允许进入 Live；阶段推进与实盘准入由 QuantScore/QuantBrew 侧裁决，KairosFlux 只记录和展示阶段值，不负责拦截转移或执行交易。",
       "applies_to_phase": "live"
