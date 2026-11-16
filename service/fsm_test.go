@@ -175,6 +175,7 @@ func TestStandalone_WriteAndRecover(t *testing.T) {
 	for _, c := range []Command{
 		{Type: CommandPut, Key: []byte("k1"), Value: []byte("v1")},
 		{Type: CommandPut, Key: []byte("k2"), Value: []byte("v2")},
+		{Type: CommandPut, Key: []byte("__offset__/legacy-file"), Value: []byte("a00")},
 		{Type: CommandDelete, Key: []byte("k1")},
 	} {
 		if err := kv.Write(c); err != nil {
@@ -189,6 +190,9 @@ func TestStandalone_WriteAndRecover(t *testing.T) {
 
 	if v, err := kv2.Get([]byte("k2")); err != nil || string(v) != "v2" {
 		t.Fatalf("recover k2: v=%q err=%v", v, err)
+	}
+	if v, err := kv2.Get([]byte("__offset__/legacy-file")); err != nil || string(v) != "a00" {
+		t.Fatalf("legacy offset remains ordinary data after restart: v=%q err=%v", v, err)
 	}
 	if _, err := kv2.Get([]byte("k1")); err == nil {
 		t.Fatal("k1 should remain deleted after recovery")

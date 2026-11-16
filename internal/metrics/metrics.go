@@ -27,10 +27,6 @@ var (
 	Deletes                   atomic.Int64 // 成功删除（DEL）次数
 	WriteErrors               atomic.Int64 // 写入/删除失败次数
 	BackpressureStalls        atomic.Int64 // 写入被字节信用背压阻塞的次数
-	Delivered                 atomic.Int64 // 成功投递到下游 sink 的记录数
-	DeliveryFailed            atomic.Int64 // 投递批失败（未 ack）次数
-	OffsetCommits             atomic.Int64 // 投递游标 offset 提交次数
-	CircuitOpen               atomic.Int64 // 下游 sink 熔断器跳到 open 的次数
 	AdmissionShed             atomic.Int64 // 网关自适应准入拒绝（shed）的请求数
 	PanicsRecovered           atomic.Int64 // kairnet 连接/请求处理路径捕获并恢复的 panic 次数（应恒为 0，非 0 说明有 bug）
 )
@@ -71,10 +67,6 @@ type Snapshot struct {
 	Deletes               int64
 	WriteErrors           int64
 	BackpressureStalls    int64
-	Delivered             int64
-	DeliveryFailed        int64
-	OffsetCommits         int64
-	CircuitOpen           int64
 	AdmissionShed         int64
 	PanicsRecovered       int64
 	MemTableInflightBytes int64
@@ -96,10 +88,6 @@ func Take() Snapshot {
 		Deletes:               Deletes.Load(),
 		WriteErrors:           WriteErrors.Load(),
 		BackpressureStalls:    BackpressureStalls.Load(),
-		Delivered:             Delivered.Load(),
-		DeliveryFailed:        DeliveryFailed.Load(),
-		OffsetCommits:         OffsetCommits.Load(),
-		CircuitOpen:           CircuitOpen.Load(),
 		AdmissionShed:         AdmissionShed.Load(),
 		PanicsRecovered:       PanicsRecovered.Load(),
 		MemTableInflightBytes: memTableInflight(),
@@ -123,10 +111,6 @@ func LogSnapshot() {
 		"deletes", s.Deletes,
 		"write_errors", s.WriteErrors,
 		"backpressure_stalls", s.BackpressureStalls,
-		"delivered", s.Delivered,
-		"delivery_failed", s.DeliveryFailed,
-		"offset_commits", s.OffsetCommits,
-		"circuit_open", s.CircuitOpen,
 		"admission_shed", s.AdmissionShed,
 		"panics_recovered", s.PanicsRecovered,
 		"memtable_inflight_bytes", s.MemTableInflightBytes,

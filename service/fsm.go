@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -14,7 +13,6 @@ import (
 	"github.com/ChronoBrew/KairosFlux/predicate"
 	"github.com/ChronoBrew/KairosFlux/proto"
 	"github.com/ChronoBrew/KairosFlux/raft"
-	"github.com/ChronoBrew/KairosFlux/service/delivery/offset"
 	"github.com/ChronoBrew/KairosFlux/storage"
 )
 
@@ -204,25 +202,6 @@ func (k *KVServer) Checkpoint() {
 	if err := k.wal.Rewrite(records); err != nil {
 		slog.Error("WAL checkpoint rewrite failed", "error", err)
 	}
-}
-
-// ReclaimDelivered 丢弃已整体投递完的 SSTable，返回回收的文件数。
-//
-// bound 取自投递已提交的游标，但会先被压到 offset 保留前缀之下——游标本身就以
-// `__offset__/<sink>` 为 key 存在同一 KV 空间里，若某个文件同时含业务数据与该游标，
-// 而 bound 又大于它，整份文件会连游标一起被删；游标一丢，投递将从头重投全部数据。
-// 压到保留前缀之下即可保证：任何含保留 key 的文件其 MaxKey 都不小于 bound，故必被保留。
-//
-// 代价是 key 排在 `__offset__/` 之后的数据不会被回收。这是当前 offset 与业务数据共用
-// 一个 key 空间带来的限制；把 offset 移出可扫描空间才能解除，属独立改动。
-func (k *KVServer) ReclaimDelivered(bound []byte) int {
-	if len(bound) == 0 {
-		return 0
-	}
-	if reserved := []byte(offset.ReservedPrefix); bytes.Compare(bound, reserved) > 0 {
-		bound = reserved
-	}
-	return k.storage.ReclaimUpTo(bound)
 }
 
 // Close 优雅停机：停止存储后台协程并关闭 standalone WAL（raft 模式 wal 为 nil）。

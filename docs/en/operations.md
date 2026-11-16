@@ -20,7 +20,7 @@ Check actual configuration and working directory before production use: `WALPath
 
 KairosFlux is not intended to be a “discard after delivery” buffer in the target architecture. **Stop writes and shut down the server** before copying; identify and copy both the actual WAL file and SSTable directory to a separate location. Record the resolved paths, config, and backup time. Do not copy only SSTables or treat an unverified live copy as a consistent snapshot. Restore into an isolated directory, verify representative quotes, version history, and audit queries, then consider switching the production directory.
 
-The current optional `RetentionEnabled` means “reclaim whole SSTable files after the delivery cursor commits,” **not** “expire records by market date or research retention period.” Before removing delivery/reclamation in code, check whether it was ever enabled in the actual runtime configuration; code deletion cannot recover previously reclaimed history.
+The former `RetentionEnabled` option reclaimed whole SSTable files after delivery commits. It no longer exists. If it was enabled in an earlier deployment, previously reclaimed data cannot be restored by this code change; recover from an independently verified backup.
 
 ## Verification and limits
 

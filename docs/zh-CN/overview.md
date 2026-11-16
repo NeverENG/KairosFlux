@@ -15,8 +15,8 @@ KairosFlux 的“AI native”指研究员能取回有时间边界和来源的上
 ## 当前实现与计划
 
 - **当前**：单机持久化、Kair 网络入口、嵌入式 Go API、版本化读写、审计与 AI Context/Proposal 实现；另有可选 Raft/分片路径。
-- **当前但不属于目标职责**：服务端按配置启用的文件/ClickHouse 投递，默认关闭。Job 调度/执行已移除，`cmd/kairosflux-import-registry` 仅负责数据导入。
-- **已决定、尚未实施**：删除内置投递及“投递完成后回收”的语义；保留研究状态、证据和历史查询。
+- **已从数据库移除**：Job 调度/执行及内置文件/ClickHouse 投递。`cmd/kairosflux-import-registry` 仅负责数据导入。
+- **数据保留**：投递触发的 SSTable 回收已移除；本次变更不迁移或删除已有数据。
 - **待设计验证**：单只股票过去 N 天的读取与股票优先键布局；旧行情数据需离线转换和核验。新的研究过程、交易 Handoff 记录契约尚未在本仓库统一定义，不应视为已交付接口。
 
 [架构与组件](architecture.md) · [数据与时间语义](data-model.md)

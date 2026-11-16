@@ -2,12 +2,12 @@ package service
 
 // Node 是服务器进程的生命周期唯一持有者（五层重构的 service 层门面，见
 // docs/调研-架构调整-分层与Node门面.md）：KVServer/Router/RouterV2/Filter/
-// 投递/HA/metrics/kairnet.Server 的装配与启停全部收敛在这一处，对外只暴露
+// HA/metrics/kairnet.Server 的装配与启停全部收敛在这一处，对外只暴露
 // Serve/Stop/Addr。cmd/kairosflux-server 的 main 只是它的薄壳。
 //
 // 装配顺序是旧 main 代码的逐行迁移（契约加载→KVServer→HA→Router→分片/
 // 准入→Filter→RouterV2→Handler 注入→metrics→Serve），配置门控的启动项
-// （分片路由/准入/投递）保持各自 bootstrap 函数的语义不变；Handler 注入
+// （分片路由/准入）保持各自 bootstrap 函数的语义不变；Handler 注入
 // 走 kairnet 新路径 AddHandler/SetV2Handler（Router 概念已从传输层 API
 // 撤出，见 kairnet/handler.go 顶部注释）。
 //
@@ -108,17 +108,16 @@ func (n *Node) Addr() string {
 }
 
 // Serve 阻塞至收到 SIGINT/SIGTERM：先等选主完成再开放端口（避免启动瞬间
-// 写入被拒，#86），随后按配置启动下游投递循环（默认关闭），最后进入
+// 写入被拒，#86），然后进入
 // kairnet 的 Serve 循环（信号到达后内部自行优雅关停）。
 func (n *Node) Serve() {
 	fmt.Println("Starting Server...")
 	fmt.Printf("HA initialized, initial health status: %v\n", n.ha.IsHealthy())
 	n.kv.WaitUntilReady()
-	StartDeliveryFromConfig(n.ctx, n.kv)
 	n.server.Serve()
 }
 
-// Stop 优雅关停（幂等）：投递循环随 ctx 取消退出，kairnet.Server 按
+// Stop 优雅关停（幂等）：后台指标随 ctx 取消退出，kairnet.Server 按
 // detect→broadcast+wait→close 三段式排空在途请求后关闭监听。
 func (n *Node) Stop() {
 	n.cancel()
