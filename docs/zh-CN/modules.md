@@ -11,7 +11,7 @@
                                        └──────────────→ internal/temporal（时点语义）
 ```
 
-这只是阅读顺序，不表示每个请求都会经过每一层：嵌入式 Go API 不经网络；Kair 服务端从 `service` 装配业务处理器。Raft/分片为可选路径，Job 与投递虽然还在仓库中，但已决定从数据库职责中移除。
+这只是阅读顺序，不表示每个请求都会经过每一层：嵌入式 Go API 不经网络；Kair 服务端从 `service` 装配业务处理器。Raft/分片为可选路径，Job 调度已移除，投递仍待删除。
 
 ## 对外入口与数据契约
 
@@ -63,12 +63,12 @@
 | [service/shardkv/](../../service/shardkv/) | `experimental` 构建标签下的 Multi-Raft 分片原型，默认构建不包含。 |
 | [internal/admission/](../../internal/admission/) | 按配置启用的网关准入/过载控制。 |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | 用于基准/协议对照的 gRPC 实现，非生产主入口。 |
-| [internal/jobctl/](../../internal/jobctl/) | 当前仍有 Job 调度/执行和复用的客户端、策略索引类型；**调度执行待移除，共用契约不能盲删**。 |
+| [internal/jobctl/](../../internal/jobctl/) | 沿用旧命名，保留 v2 客户端、实验导入/索引和策略阶段数据类型；无 Job 执行器。 |
 | [service/delivery/](../../service/delivery/) | 当前仍有后台投递来源、批次发送与文件/ClickHouse sink；**待移除**。 |
 | [service/delivery/offset/](../../service/delivery/offset/) | 投递续传游标；随投递链路审查删除。 |
 | [service/delivery/governance/](../../service/delivery/governance/) | 投递目标健康路由/熔断；随投递链路审查删除。 |
 
-投递完成后回收 SSTable 的路径还跨越 `service/` 与 `storage/`；不能只删除 `service/delivery/` 就宣称回收语义已消失。以上“待移除”均未在本次文档 PR 中实施。
+投递完成后回收 SSTable 的路径还跨越 `service/` 与 `storage/`；不能只删除 `service/delivery/` 就宣称回收语义已消失。投递链路仍待独立移除。
 
 ## 可执行程序、样例和辅助文件
 
@@ -76,7 +76,7 @@
 | --- | --- |
 | [cmd/kairosflux-server/](../../cmd/kairosflux-server/) | 生产 Kair 服务端入口。 |
 | [cmd/kairosflux-cli/](../../cmd/kairosflux-cli/) | 基本 KV、时点查询与审计命令。 |
-| [cmd/kairosflux-jobctl/](../../cmd/kairosflux-jobctl/) | 独立 Job 控制面命令；调度/执行**待移除**。 |
+| [cmd/kairosflux-import-registry/](../../cmd/kairosflux-import-registry/) | 一次性导入 QuantBrew 实验记录，不负责调度。 |
 | [cmd/kairosflux-grpc-server/](../../cmd/kairosflux-grpc-server/) | gRPC 对照服务。 |
 | [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/)、[bench-grpc/](../../cmd/kairosflux-bench-grpc/) | Kair 与 gRPC 的压测入口。 |
 | [cmd/kairosflux-ingest/](../../cmd/kairosflux-ingest/) | 存储引擎摄入基准。 |
@@ -84,7 +84,6 @@
 | [cmd/kairosflux-sample-embedded/](../../cmd/kairosflux-sample-embedded/) | 无网络 Go Engine 样例。 |
 | [cmd/kairosflux-sample-server/](../../cmd/kairosflux-sample-server/) | 网络模式端到端样例。 |
 | [cmd/kairosflux-sample-audit/](../../cmd/kairosflux-sample-audit/) | 版本写入和审计导出样例。 |
-| [jobs/](../../jobs/) | 旧 Job spec 示例，不代表数据库应继续执行研究任务。 |
 | [scripts/](../../scripts/) | 基准辅助脚本。 |
 | [docs/kair/](../kair/) | Go/Python 共用协议字节向量，是测试资产，非普通文章。 |
 

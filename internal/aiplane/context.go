@@ -162,7 +162,7 @@ func listStrategyStates(lister PrefixLister, asOfNanos int64) ([]StrategyObject,
 // BuildContext 组装一份确定性上下文包。contractsDir 通常是仓库的
 // contracts/ 目录，redlinesPath 通常是 riskredlines/redlines.json（两者都
 // 是调用方传入的路径，本函数不硬编码；生产用法见
-// cmd/kairosflux-jobctl 或测试里的固定路径）。
+// 调用方配置或测试里的固定路径）。
 func BuildContext(rw ReadWriter, req ContextRequest, contractsDir, redlinesPath string) (ContextBundle, error) {
 	contracts, contractsDigest, err := loadContracts(contractsDir)
 	if err != nil {

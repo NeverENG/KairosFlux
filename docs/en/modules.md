@@ -11,7 +11,7 @@ caller → client / kairosflux Go API → kairnet → proto → service → stor
                                       └──────────────→ internal/temporal (as-of semantics)
 ```
 
-This is a reading order, not a claim that every request traverses every layer: the embedded Go API does not use the network, and `service` wires the Kair handlers. Raft/sharding is optional. Job scheduling and delivery still exist in code but are slated to leave the database's responsibilities.
+This is a reading order, not a claim that every request traverses every layer: the embedded Go API does not use the network, and `service` wires the Kair handlers. Raft/sharding is optional. Job scheduling has been removed; delivery remains pending removal.
 
 ## Public entry points and data contracts
 
@@ -63,12 +63,12 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [service/shardkv/](../../service/shardkv/) | Multi-Raft shard prototype behind the `experimental` build tag; excluded by default. |
 | [internal/admission/](../../internal/admission/) | Config-gated gateway admission and overload control. |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | gRPC benchmark/protocol comparison, not the primary production entry point. |
-| [internal/jobctl/](../../internal/jobctl/) | Job scheduling/execution plus shared client and strategy index types; **remove the scheduler, not shared contracts blindly**. |
+| [internal/jobctl/](../../internal/jobctl/) | Legacy-named package retaining the v2 client, experiment import/index, and strategy phase data type; no Job runner. |
 | [service/delivery/](../../service/delivery/) | Existing background source, batching, and file/ClickHouse sinks; **pending removal**. |
 | [service/delivery/offset/](../../service/delivery/offset/) | Delivery resume cursor; review for removal with delivery. |
 | [service/delivery/governance/](../../service/delivery/governance/) | Delivery sink health routing/circuit breaker; review for removal with delivery. |
 
-Delivery-triggered whole-SSTable reclamation also spans `service/` and `storage/`; deleting `service/delivery/` alone does not remove that behavior. No “pending removal” has been implemented by this documentation PR.
+Delivery-triggered whole-SSTable reclamation also spans `service/` and `storage/`; deleting `service/delivery/` alone does not remove that behavior. Delivery removal remains pending.
 
 ## Programs, samples, and supporting files
 
@@ -76,7 +76,7 @@ Delivery-triggered whole-SSTable reclamation also spans `service/` and `storage/
 | --- | --- |
 | [cmd/kairosflux-server/](../../cmd/kairosflux-server/) | Production Kair server. |
 | [cmd/kairosflux-cli/](../../cmd/kairosflux-cli/) | Basic KV, point-in-time reads, and audit commands. |
-| [cmd/kairosflux-jobctl/](../../cmd/kairosflux-jobctl/) | Separate Job control-plane command; scheduling/execution **pending removal**. |
+| [cmd/kairosflux-import-registry/](../../cmd/kairosflux-import-registry/) | One-shot QuantBrew experiment data import; no scheduler. |
 | [cmd/kairosflux-grpc-server/](../../cmd/kairosflux-grpc-server/) | gRPC comparison server. |
 | [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/) and [bench-grpc/](../../cmd/kairosflux-bench-grpc/) | Kair and gRPC benchmarks. |
 | [cmd/kairosflux-ingest/](../../cmd/kairosflux-ingest/) | Storage-engine ingestion benchmark. |
@@ -84,7 +84,6 @@ Delivery-triggered whole-SSTable reclamation also spans `service/` and `storage/
 | [cmd/kairosflux-sample-embedded/](../../cmd/kairosflux-sample-embedded/) | Network-free Go Engine example. |
 | [cmd/kairosflux-sample-server/](../../cmd/kairosflux-sample-server/) | Network-mode end-to-end example. |
 | [cmd/kairosflux-sample-audit/](../../cmd/kairosflux-sample-audit/) | Version writes and audit-export example. |
-| [jobs/](../../jobs/) | Legacy Job specs; not a reason for the database to run research tasks. |
 | [scripts/](../../scripts/) | Benchmark helper scripts. |
 | [docs/kair/](../kair/) | Go/Python byte-level protocol test vectors, not prose documents. |
 

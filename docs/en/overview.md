@@ -15,8 +15,8 @@
 ## Shipped versus planned
 
 - **Current**: standalone persistence, Kair server, embedded Go API, versioned reads/writes, auditing, AI Context/Proposal implementation, and optional Raft/sharding paths.
-- **Present but outside the target boundary**: the separate `cmd/kairosflux-jobctl` apply/tick/run/import-registry command and configurable file/ClickHouse delivery. Delivery is off by default.
-- **Decided, not yet implemented**: remove Job scheduling/execution, built-in delivery, and delivery-triggered reclamation; retain research state, evidence, and historical reads. Removing code must preserve types and index contracts still consumed by the AI data plane.
+- **Present but outside the target boundary**: configurable file/ClickHouse delivery, off by default. The Job scheduler/executor is removed; `cmd/kairosflux-import-registry` remains a data-import command.
+- **Decided, not yet implemented**: remove built-in delivery and delivery-triggered reclamation; retain research state, evidence, and historical reads.
 - **To design and validate**: single-symbol N-day reads and a symbol-first key layout, with offline conversion and verification of old quotes. Unified contracts for the full research process and trade handoff have not yet been delivered in this repository.
 
 [Architecture and components](architecture.md) · [Data and time semantics](data-model.md)

@@ -98,9 +98,8 @@ func (p Proposal) Validate() error {
 // canonicalProposal 是 Proposal 的规范化编码目标结构：字段顺序固定，Detail
 // 用 json.RawMessage 原样透传（json.Marshal 不会重新格式化 RawMessage 内部
 // 字节，故 Detail 内部字段顺序由提交方决定——这是提交方需要对自己提交内容
-// 的指纹稳定性负责的部分，不是本包能控制的）。与 internal/jobctl.JobSpec.
-// CanonicalJSON 同一模式：不依赖 struct 字段声明顺序这种偶然细节之外的东西
-// （struct 字段顺序本身是 encoding/json 文档保证的确定性行为，不是偶然细节）。
+// 的指纹稳定性负责的部分，不是本包能控制的）。encoding/json 按结构体
+// 字段声明顺序编码，不依赖 map 迭代。
 type canonicalProposal struct {
 	Kind                  ProposalKind    `json:"kind"`
 	SubmittedBy           string          `json:"submitted_by"`

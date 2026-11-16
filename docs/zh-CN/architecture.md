@@ -23,6 +23,6 @@ QuantBrew (Rust, 回测/持仓) ────┘                             │
 
 `raft/` 和 `cluster/` 提供可选分布式路径；当前服务端 `SCAN` 只扫描本地，不做跨分片 scatter-gather，不能把它当成完整的分布式时间范围查询。
 
-`cmd/kairosflux-jobctl` 是**进程外独立命令**，含执行/调度能力，不是服务端自动运行的研究调度器。服务端 `StartDeliveryFromConfig` 可启动文件/ClickHouse 后台投递，默认关闭。删除这两条链路是**后续代码变更**，尚未发生。AI 数据平面对 `internal/jobctl` 的共用类型和索引存在依赖，不能整包盲删。
+Job 调度/执行及其 CLI 已移除；`cmd/kairosflux-import-registry` 保留 QuantBrew 实验记录的版本化导入，以供 AI 数据平面查询。服务端 `StartDeliveryFromConfig` 仍可启动文件/ClickHouse 后台投递，默认关闭，待独立删除。
 
 [模块地图与阅读路线](modules.md) · [数据和查询边界](data-model.md) · [运行与备份](operations.md)
