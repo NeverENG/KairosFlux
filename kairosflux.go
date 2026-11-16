@@ -237,7 +237,7 @@ func newEngine(opts Options, requireDir bool) (*Engine, error) {
 // REPLAY_FINGERPRINT/LIST_WRITES + ack 三档/窗口/STAT/BYE）+ 采集过滤钩子，
 // 与 Node（service/node.go）的 handler 接线同构。
 func (e *Engine) attachNetworkShell(opts Options) error {
-	filter := ingesthook.NewFilter([]string{"gps", "user_id"}, 0, true)
+	filter := ingesthook.NewFilter(nil, 0, false)
 	router := service.NewRouter(e.kv)
 	router.SetPreHandle(filter.Handle)
 	routerV2 := service.NewRouterV2(e.kv, filter, opts.WindowSafetyValveN)
