@@ -88,7 +88,7 @@ go run ./cmd/kairosflux-sample-embedded -data-dir /tmp/kairosflux-demo
 
 ## 文档、历史 RFC 与验证
 
-- [双语文档索引](docs/zh-CN/README.md)：[定位](docs/zh-CN/overview.md)、[架构](docs/zh-CN/architecture.md)、[数据模型](docs/zh-CN/data-model.md)、[运行与备份](docs/zh-CN/operations.md)、[协议入口](docs/zh-CN/protocol.md)。
+- [双语文档索引](docs/zh-CN/README.md)与[模块地图](docs/zh-CN/modules.md)：[定位](docs/zh-CN/overview.md)、[架构](docs/zh-CN/architecture.md)、[数据模型](docs/zh-CN/data-model.md)、[运行与备份](docs/zh-CN/operations.md)、[协议入口](docs/zh-CN/protocol.md)。
 - [历史 RFC 索引](docs/rfc/README.md)：保留 Kair v2、bannet 重构、时态内核 M0 与键空间分区的设计背景；**历史方案不是当前实现声明**。
 - `contracts/` 是机器可读数据契约；`docs/kair/vectors*.json` 是 Go/Python 协议测试向量，不是说明文档。
 

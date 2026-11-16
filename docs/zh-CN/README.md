@@ -5,6 +5,7 @@
 | 主题 | 内容 |
 | --- | --- |
 | [定位与职责](overview.md) | QuantScore、QuantBrew 与 KairosFlux 的边界 |
+| [模块地图](modules.md) | 按包查找职责、入口与阅读路线 |
 | [架构与现状](architecture.md) | 服务入口、存储链路、AI 接口和可选能力 |
 | [数据与时间语义](data-model.md) | 行情键、版本、研究证据与查询边界 |
 | [运行、备份与验证](operations.md) | 本地启动、数据目录、测试和备份 |
