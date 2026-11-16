@@ -23,6 +23,6 @@ This illustrates ownership, not a promise that every Python/Rust research object
 
 `raft/` and `cluster/` contain optional distributed paths. Server-side `SCAN` currently reads only the local shard; it does not perform cross-shard scatter-gather and is not a complete distributed time-range query.
 
-The Job scheduler/executor and its CLI have been removed. `cmd/kairosflux-import-registry` retains the versioned import of QuantBrew experiment records consumed by the AI data plane. The server can still start file/ClickHouse delivery through `StartDeliveryFromConfig`; it is off by default and pending a separate removal.
+The Job scheduler/executor and its CLI have been removed. `cmd/kairosflux-import-registry` retains the versioned import of QuantBrew experiment records consumed by the AI data plane. Built-in file/ClickHouse delivery and delivery-triggered SSTable reclamation have been removed; the database only persists and queries records.
 
 [Module map and reading routes](modules.md) · [Data and query boundaries](data-model.md) · [Operations and backup](operations.md)

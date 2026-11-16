@@ -10,7 +10,7 @@
 | **QuantBrew · Rust** | Position strategies, quantitative backtesting, position-related computation |
 | **KairosFlux · Go** | Persisting and querying quotes, proposals, research state, outcomes and evidence; not scheduling either upstream system or deciding trades |
 
-> **Separate shipped code from direction:** versioned point-in-time reads, auditing, and Go `Context`/`Proposal` APIs exist. That does not mean a complete Python agent tool interface, a unified research-process/trade-handoff schema, or a dedicated N-day single-symbol query is already shipped. The Job scheduler/executor has been removed; opt-in background delivery still exists and is pending removal.
+> **Separate shipped code from direction:** versioned point-in-time reads, auditing, and Go `Context`/`Proposal` APIs exist. That does not mean a complete Python agent tool interface, a unified research-process/trade-handoff schema, or a dedicated N-day single-symbol query is already shipped. The Job scheduler/executor has been removed; built-in background delivery has also been removed.
 
 ## Why persist research history?
 
@@ -82,7 +82,7 @@ go run ./cmd/kairosflux-sample-embedded -data-dir /tmp/kairosflux-demo
 ## Current limits and next steps
 
 1. **Single-symbol series reads:** measure correctness and scan costs for real N-day reads, then define a symbol-first layout. Freeze writes, back up, convert, verify, then switch old quotes. Do not add dual-write or rewrite LSM up front.
-2. **Responsibility cleanup:** Job scheduling/execution is removed; built-in file/ClickHouse delivery still exists. Delivery-cursor-triggered SSTable reclamation is not a long-term research-memory retention policy and cannot be reused unchanged.
+2. **Responsibility cleanup:** Job scheduling/execution, built-in file/ClickHouse delivery, and delivery-cursor-triggered SSTable reclamation are removed. Previously reclaimed data cannot be recovered by upgrading.
 3. **Distribution:** keep it optional, but current range scans are local to one shard, not cross-shard symbol-series queries.
 4. **Agent access:** Go Context/Proposal methods exist; direct Python researcher tools and complete research/handoff contracts still need validation against actual integration paths.
 

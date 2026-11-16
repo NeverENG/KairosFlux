@@ -11,7 +11,7 @@
                                        └──────────────→ internal/temporal（时点语义）
 ```
 
-这只是阅读顺序，不表示每个请求都会经过每一层：嵌入式 Go API 不经网络；Kair 服务端从 `service` 装配业务处理器。Raft/分片为可选路径，Job 调度已移除，投递仍待删除。
+这只是阅读顺序，不表示每个请求都会经过每一层：嵌入式 Go API 不经网络；Kair 服务端从 `service` 装配业务处理器。Raft/分片为可选路径，Job 调度与内置投递已移除。
 
 ## 对外入口与数据契约
 
@@ -64,11 +64,6 @@
 | [internal/admission/](../../internal/admission/) | 按配置启用的网关准入/过载控制。 |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | 用于基准/协议对照的 gRPC 实现，非生产主入口。 |
 | [internal/jobctl/](../../internal/jobctl/) | 沿用旧命名，保留 v2 客户端、实验导入/索引和策略阶段数据类型；无 Job 执行器。 |
-| [service/delivery/](../../service/delivery/) | 当前仍有后台投递来源、批次发送与文件/ClickHouse sink；**待移除**。 |
-| [service/delivery/offset/](../../service/delivery/offset/) | 投递续传游标；随投递链路审查删除。 |
-| [service/delivery/governance/](../../service/delivery/governance/) | 投递目标健康路由/熔断；随投递链路审查删除。 |
-
-投递完成后回收 SSTable 的路径还跨越 `service/` 与 `storage/`；不能只删除 `service/delivery/` 就宣称回收语义已消失。投递链路仍待独立移除。
 
 ## 可执行程序、样例和辅助文件
 

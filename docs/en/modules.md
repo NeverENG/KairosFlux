@@ -11,7 +11,7 @@ caller → client / kairosflux Go API → kairnet → proto → service → stor
                                       └──────────────→ internal/temporal (as-of semantics)
 ```
 
-This is a reading order, not a claim that every request traverses every layer: the embedded Go API does not use the network, and `service` wires the Kair handlers. Raft/sharding is optional. Job scheduling has been removed; delivery remains pending removal.
+This is a reading order, not a claim that every request traverses every layer: the embedded Go API does not use the network, and `service` wires the Kair handlers. Raft/sharding is optional. Job scheduling and built-in delivery have been removed.
 
 ## Public entry points and data contracts
 
@@ -64,11 +64,6 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [internal/admission/](../../internal/admission/) | Config-gated gateway admission and overload control. |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | gRPC benchmark/protocol comparison, not the primary production entry point. |
 | [internal/jobctl/](../../internal/jobctl/) | Legacy-named package retaining the v2 client, experiment import/index, and strategy phase data type; no Job runner. |
-| [service/delivery/](../../service/delivery/) | Existing background source, batching, and file/ClickHouse sinks; **pending removal**. |
-| [service/delivery/offset/](../../service/delivery/offset/) | Delivery resume cursor; review for removal with delivery. |
-| [service/delivery/governance/](../../service/delivery/governance/) | Delivery sink health routing/circuit breaker; review for removal with delivery. |
-
-Delivery-triggered whole-SSTable reclamation also spans `service/` and `storage/`; deleting `service/delivery/` alone does not remove that behavior. Delivery removal remains pending.
 
 ## Programs, samples, and supporting files
 
