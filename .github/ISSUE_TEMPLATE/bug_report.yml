@@ -1,0 +1,25 @@
+name: 缺陷报告 / Bug report
+description: 报告可复现的错误 / Report a reproducible bug
+title: "[Bug] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 现象与预期 / Actual and expected
+      description: 发生了什么？预期是什么？ / What happened, and what should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现方式 / Reproduction
+      description: 给出最小步骤、命令或数据样例（请去除密钥）。 / Minimal steps, commands, or sanitized data.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 环境与影响 / Environment and impact
+      description: 版本、平台、日志、是否影响已有数据；不适用可留空。 / Version, platform, logs, existing data impact (if any).
+    validations:
+      required: false

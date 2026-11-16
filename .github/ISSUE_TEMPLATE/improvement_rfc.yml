@@ -1,0 +1,24 @@
+name: 改进 / RFC
+description: 提议聚焦的改进或需要讨论的设计 / Propose an improvement or design
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题与目标 / Problem and goal
+      description: 谁遇到了什么问题？期望改善什么？ / Who is affected, and what should improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议与边界 / Proposal and scope
+      description: 建议怎么做？哪些不做？ / What would change, and what stays out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: 数据兼容与验证 / Data compatibility and verification
+      description: 如涉及持久化数据或协议，说明迁移、回滚及验收方式；不适用可留空。 / Migration, rollback and acceptance criteria if applicable.
+    validations:
+      required: false
