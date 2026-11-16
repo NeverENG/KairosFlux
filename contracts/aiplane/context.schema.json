@@ -16,7 +16,7 @@
     "dataset_contracts": "数组，每项 {type_id, name, schema_version}，来自 contracts/*.schema.json，按 type_id 升序。",
     "contracts_digest": "string，contracts/*.schema.json 全部文件原始字节（按文件名排序拼接）的 sha256 十六进制摘要。",
     "factors_tested": "数组，每项 {experiment_fingerprint, hypothesis_summary, level, as_of, test_index}，来自 strategy:index: 前缀下已导入的 QuantBrew 实验记录，按 experiment_fingerprint 排序。",
-    "strategy_states": "数组，每项 {name, phase}，来自 strategy:obj: 前缀，按 name 排序；phase 取值见 internal/jobctl.StrategyPhase（hypothesis/gate/candidate/paper/live/retired）。",
+    "strategy_states": "数组，每项 {name, phase}，来自 strategy:obj: 前缀，按 name 排序；phase 取值见 internal/researchdata.StrategyPhase（hypothesis/gate/candidate/paper/live/retired）。",
     "risk_redlines": "数组，每项 {id, description, applies_to_phase}，来自 riskredlines/redlines.json，按 id 排序。",
     "risk_redlines_digest": "string，riskredlines/redlines.json 原始字节的 sha256 十六进制摘要。",
     "context_fingerprint": "string，见 determinism_contract.context_fingerprint。"

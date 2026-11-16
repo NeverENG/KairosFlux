@@ -3,8 +3,8 @@
 // 闸门升级为协议层强制（M4 上报缺口，任务书："把 M4 的 WriteAsAgent API 层
 // 闸门升级为协议层强制"）时，service/router_v2.go 需要在 handlePutVersioned
 // 里按解出的 source 字段做角色校验——但 service 不能 import internal/aiplane：
-// internal/aiplane/integration_test.go 与 internal/jobctl/v2store_integration_test.go
-// 都是同包内部测试（package aiplane / package jobctl，不是 _test 后缀的外部
+// internal/aiplane/integration_test.go 与 internal/researchdata/v2store_integration_test.go
+// 都是同包内部测试（package aiplane / package researchdata，不是 _test 后缀的外部
 // 测试包）且都 import service 起真实服务端做端到端验证，若 service 反过来
 // import internal/aiplane，会在 `go test ./internal/aiplane/...` 编译测试
 // 二进制时触发"import cycle not allowed in test"（已用最小复现验证过这个
@@ -29,7 +29,7 @@ type Role string
 const (
 	// RoleAgent 是研究员 agent（QuantScout 侧 LLM 驱动调用方）的角色。
 	RoleAgent Role = "agent"
-	// RoleEngine 是确定性裁决管道自身（jobctl/aiplane 引擎组件）的角色。
+	// RoleEngine 是确定性裁决管道自身（researchdata/aiplane 数据组件）的角色。
 	RoleEngine Role = "engine"
 )
 

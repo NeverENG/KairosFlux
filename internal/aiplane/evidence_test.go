@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
 // putExperimentRecord 是测试装配辅助：直接把一条 ExperimentRecord 编码成
 // strategy:index:{fingerprint} 的原始 payload（镜像 QuantBrew registry.jsonl
-// 的 {"verdict": {...}} 顶层结构），绕开 jobctl.RegistryImporter 从文件导入
+// 的 {"verdict": {...}} 顶层结构），绕开 researchdata.RegistryImporter 从文件导入
 // 这一步，专注测试 aiplane 侧的读取/组装逻辑。
 func putExperimentRecord(store *fakeReadWriter, rec ExperimentRecord) {
 	raw, _ := json.Marshal(registryVerdictEnvelope{Verdict: rec})
-	store.putRaw(jobctl.RegistryIndexKey(rec.Fingerprint), raw)
+	store.putRaw(researchdata.RegistryIndexKey(rec.Fingerprint), raw)
 }
 
 // TestQueryEvidenceChain_FullChainResolves 证明"factor -> experiment ->
@@ -40,7 +40,7 @@ func TestQueryEvidenceChain_FullChainResolves(t *testing.T) {
 	if err := LinkExperimentToStrategy(store, "exp_amihud_1", "candidate1"); err != nil {
 		t.Fatalf("LinkExperimentToStrategy 失败: %v", err)
 	}
-	if err := RegisterStrategyObject(store, StrategyObject{Name: "candidate1", Phase: jobctl.StrategyPaper}); err != nil {
+	if err := RegisterStrategyObject(store, StrategyObject{Name: "candidate1", Phase: researchdata.StrategyPaper}); err != nil {
 		t.Fatalf("RegisterStrategyObject 失败: %v", err)
 	}
 	if err := LinkStrategyToPaper(store, "candidate1", "paper_10"); err != nil {
@@ -74,7 +74,7 @@ func TestQueryEvidenceChain_FullChainResolves(t *testing.T) {
 		t.Fatalf("应关联到 candidate1 策略，实际 %+v", exp.Strategies)
 	}
 	strat := exp.Strategies[0]
-	if strat.Object == nil || strat.Object.Phase != jobctl.StrategyPaper {
+	if strat.Object == nil || strat.Object.Phase != researchdata.StrategyPaper {
 		t.Fatalf("策略对象应能解析出 phase=paper，实际 %+v", strat.Object)
 	}
 	if len(strat.PaperAccounts) != 1 || strat.PaperAccounts[0].Name != "paper_10" {

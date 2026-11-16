@@ -13,7 +13,7 @@
     },
     {
       "id": "no_live_without_paper_pass",
-      "description": "策略未经过模拟盘（Paper）阶段验证，不得转移到 Live 阶段（见 internal/jobctl.StrategyPhase 状态机：Candidate 只能到 Paper 或 Retired，不能直接到 Live）。",
+      "description": "上游策略要求先通过模拟盘（Paper）验证，才允许进入 Live；阶段推进与实盘准入由 QuantScore/QuantBrew 侧裁决，KairosFlux 只记录和展示阶段值，不负责拦截转移或执行交易。",
       "applies_to_phase": "live"
     },
     {

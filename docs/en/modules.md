@@ -63,7 +63,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [service/shardkv/](../../service/shardkv/) | Multi-Raft shard prototype behind the `experimental` build tag; excluded by default. |
 | [internal/admission/](../../internal/admission/) | Config-gated gateway admission and overload control. |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | gRPC benchmark/protocol comparison, not the primary production entry point. |
-| [internal/jobctl/](../../internal/jobctl/) | Legacy-named package retaining the v2 client, experiment import/index, and strategy phase data type; no Job runner. |
+| [internal/researchdata/](../../internal/researchdata/) | Research data client, QuantBrew experiment import/index, and strategy phase values; no Job runner. |
 
 ## Programs, samples, and supporting files
 

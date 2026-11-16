@@ -13,7 +13,7 @@ import (
 	"time"
 
 	kairosflux "github.com/ChronoBrew/KairosFlux"
-	"github.com/ChronoBrew/KairosFlux/internal/jobctl"
+	"github.com/ChronoBrew/KairosFlux/internal/researchdata"
 )
 
 // mustDataDir 建一个本测试独占的临时数据目录。
@@ -181,11 +181,11 @@ func TestEngineServeNetworkShell(t *testing.T) {
 		t.Fatal("Serve 后 Addr() 为空")
 	}
 
-	// 以外部消费者身份（jobctl.V2Store，纯 v2 网络客户端）写读。quote: 前缀
+	// 以外部消费者身份（researchdata.V2Store，纯 v2 网络客户端）写读。quote: 前缀
 	// 走内建契约校验（ingesthook/schema 的 QuoteSnapshot，注册于包 init），
 	// 负载必须是合法行情快照。
 	quoteJSON := []byte(`{"code":"510300","date":"2026-08-17","open":1.0,"high":1.1,"low":0.9,"close":1.05,"volume":100}`)
-	store := jobctl.NewV2Store(addr, 5*time.Second)
+	store := researchdata.NewV2Store(addr, 5*time.Second)
 	seq, err := store.PutVersioned("quote:2026-08-17:510300", quoteJSON, "job-net")
 	if err != nil {
 		t.Fatalf("v2 网络 PUT_VERSIONED: %v", err)

@@ -321,7 +321,7 @@ func (e *Engine) ListWrites(prefix string, tFromNanos, tToNanos int64, sourceFil
 // SubmitProposal 是 agent 写提议的唯一入口（Proposal 访问口）：字段校验 +
 // 角色强制（只接受 Proposal 对象，写落 proposal: 键空间）委托
 // internal/aiplane.SubmitProposal，返回提议指纹与本次写入分配到的 seq。
-// 与 jobctl.V2Store（网络瘦客户端）是同一个 ReadWriter 语义的不同实现——
+// 与 researchdata.V2Store（网络瘦客户端）是同一个 ReadWriter 语义的不同实现——
 // 这里是进程内直连 TemporalStore。
 func (e *Engine) SubmitProposal(p Proposal) (fingerprint string, seq uint64, err error) {
 	return aiplane.SubmitProposal(e.rw, p)
@@ -361,7 +361,7 @@ func (e *Engine) Close() error {
 
 // engineReadWriter 是 Engine 面向 aiplane 的 ReadWriter 适配器：以进程内
 // TemporalStore 实现 Writer/AsOfReader/PrefixLister 三接口，与生产实现
-// jobctl.V2Store（经 v2 网络协议访问服务端）同语义、同键空间、同折叠前
+// researchdata.V2Store（经 v2 网络协议访问服务端）同语义、同键空间、同折叠前
 // 输出形状（ListPrefix 返回全部历史版本，折叠是 aiplane.LatestPerLogicalKey
 // 的职责），只是不经网络。
 type engineReadWriter struct {
@@ -384,7 +384,7 @@ func (w engineReadWriter) GetAsOf(logicalKey string, asOfNanos int64) ([]byte, b
 	return v.Payload, true, nil
 }
 
-// ListPrefix 实现 aiplane.PrefixLister：与 jobctl.V2Store.ListPrefix 完全
+// ListPrefix 实现 aiplane.PrefixLister：与 researchdata.V2Store.ListPrefix 完全
 // 同语义——asOfNanos 作为写入时间上界走 LIST_WRITES 的 tToNanos（<=0 无
 // 上界），返回该前缀下每个逻辑键的每一条历史版本。
 func (w engineReadWriter) ListPrefix(prefix string, asOfNanos int64) ([]proto.WriteEnvelopeView, error) {

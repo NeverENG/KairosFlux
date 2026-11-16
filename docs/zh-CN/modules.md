@@ -63,7 +63,7 @@
 | [service/shardkv/](../../service/shardkv/) | `experimental` 构建标签下的 Multi-Raft 分片原型，默认构建不包含。 |
 | [internal/admission/](../../internal/admission/) | 按配置启用的网关准入/过载控制。 |
 | [internal/kvgrpc/](../../internal/kvgrpc/) | 用于基准/协议对照的 gRPC 实现，非生产主入口。 |
-| [internal/jobctl/](../../internal/jobctl/) | 沿用旧命名，保留 v2 客户端、实验导入/索引和策略阶段数据类型；无 Job 执行器。 |
+| [internal/researchdata/](../../internal/researchdata/) | 研究数据客户端、QuantBrew 实验导入/索引和策略阶段值；无 Job 执行器。 |
 
 ## 可执行程序、样例和辅助文件
 
