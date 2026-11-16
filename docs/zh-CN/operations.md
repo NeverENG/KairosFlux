@@ -4,7 +4,7 @@
 
 ## 本地启动
 
-Go 1.26+。从仓库根目录构建，再从 `cmd/kairosflux-server` 启动，以便仓库现有 `config/config.json` 中的相对数据路径按预期解析：
+Go 1.26.1+。从仓库根目录构建，再从 `cmd/kairosflux-server` 启动，以便仓库现有 `config/config.json` 中的相对数据路径按预期解析：
 
 ```sh
 go build ./...

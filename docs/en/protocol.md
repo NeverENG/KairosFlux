@@ -13,4 +13,4 @@ Kair is the production network entry point; the embedded Go `Engine` does not us
 
 v1 provides basic PUT/GET/DEL/SCAN; v2 includes versioned writes, as-of reads, version listing, and auditing. Plain PUT overwrites a literal key and is not the same as immutable PUT_VERSIONED. Network agent-source checks primarily apply to v2 `PUT_VERSIONED`; v1 PUT/DEL do not carry the same source-role field, and in-process Go APIs do not traverse network role checks. Do not describe all agent writes as protected by an identical authorization policy.
 
-Check both the actual codecs and fixed test vectors before changing wire formats; this page alone is insufficient to implement a new client. The old protocol design notes have been removed from the prose tree but remain available in Git history.
+Check both the actual codecs and fixed test vectors before changing wire formats; this page alone is insufficient to implement a new client. The [historical Kair 2 RFC](../rfc/Kair-2.md) and [bannet restructuring notes](../rfc/bannet-重构.md) remain available as historical rationale, not as substitutes for current code.

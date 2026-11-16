@@ -4,7 +4,7 @@
 
 ## Local startup
 
-Go 1.26+ is required. Build from the repository root, then start the server from `cmd/kairosflux-server` so relative data paths in the current `config/config.json` resolve as intended:
+Go 1.26.1+ is required. Build from the repository root, then start the server from `cmd/kairosflux-server` so relative data paths in the current `config/config.json` resolve as intended:
 
 ```sh
 go build ./...
