@@ -88,7 +88,7 @@ go run ./cmd/kairosflux-sample-embedded -data-dir /tmp/kairosflux-demo
 
 ## Documentation, historical RFCs, and verification
 
-- [Bilingual documentation index](docs/en/README.md): [purpose](docs/en/overview.md), [architecture](docs/en/architecture.md), [data model](docs/en/data-model.md), [operations](docs/en/operations.md), [protocol entry point](docs/en/protocol.md).
+- [Bilingual documentation index](docs/en/README.md) and [module map](docs/en/modules.md): [purpose](docs/en/overview.md), [architecture](docs/en/architecture.md), [data model](docs/en/data-model.md), [operations](docs/en/operations.md), [protocol entry point](docs/en/protocol.md).
 - [Historical RFC index](docs/rfc/README.md): Kair v2, bannet restructuring, temporal M0, and key-space partitioning. **Past proposals are not current implementation claims.**
 - `contracts/` contains machine-readable data contracts; `docs/kair/vectors*.json` holds Go/Python protocol test vectors, not prose documentation.
 

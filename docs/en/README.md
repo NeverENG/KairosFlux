@@ -5,6 +5,7 @@
 | Topic | Contents |
 | --- | --- |
 | [Purpose and responsibilities](overview.md) | The boundary between QuantScore, QuantBrew, and KairosFlux |
+| [Module map](modules.md) | Package responsibilities, entry points, and reading routes |
 | [Architecture and current state](architecture.md) | Entry points, storage, agent APIs, optional features |
 | [Data and time semantics](data-model.md) | Quote keys, versions, research evidence, and query limits |
 | [Operations, backup, and verification](operations.md) | Local startup, data directory, tests, and backup |

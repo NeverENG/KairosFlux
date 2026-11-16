@@ -25,4 +25,4 @@ QuantBrew (Rust, 回测/持仓) ────┘                             │
 
 `cmd/kairosflux-jobctl` 是**进程外独立命令**，含执行/调度能力，不是服务端自动运行的研究调度器。服务端 `StartDeliveryFromConfig` 可启动文件/ClickHouse 后台投递，默认关闭。删除这两条链路是**后续代码变更**，尚未发生。AI 数据平面对 `internal/jobctl` 的共用类型和索引存在依赖，不能整包盲删。
 
-[数据和查询边界](data-model.md) · [运行与备份](operations.md)
+[模块地图与阅读路线](modules.md) · [数据和查询边界](data-model.md) · [运行与备份](operations.md)

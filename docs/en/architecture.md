@@ -25,4 +25,4 @@ This illustrates ownership, not a promise that every Python/Rust research object
 
 `cmd/kairosflux-jobctl` is a **separate external command** with execution/scheduling, not an always-on server scheduler. The server can start file/ClickHouse delivery through `StartDeliveryFromConfig`; it is off by default. Removing these paths is a **future code change**, not part of this documentation reset. The AI data plane still depends on shared types and index definitions in `internal/jobctl`; do not remove that package indiscriminately.
 
-[Data and query boundaries](data-model.md) · [Operations and backup](operations.md)
+[Module map and reading routes](modules.md) · [Data and query boundaries](data-model.md) · [Operations and backup](operations.md)
