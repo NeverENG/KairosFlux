@@ -34,8 +34,8 @@ func TestQueryEvidenceChain_FullChainResolves(t *testing.T) {
 		Level:             "pass_raw",
 	})
 
-	if err := AdmitFactorEvidence(store, asOf, "amihud_illiq", "exp_amihud_1"); err != nil {
-		t.Fatalf("AdmitFactorEvidence 失败: %v", err)
+	if err := LinkFactorToExperiment(store, "amihud_illiq", "exp_amihud_1"); err != nil {
+		t.Fatalf("LinkFactorToExperiment 失败: %v", err)
 	}
 	if err := LinkExperimentToStrategy(store, "exp_amihud_1", "candidate1"); err != nil {
 		t.Fatalf("LinkExperimentToStrategy 失败: %v", err)
@@ -101,8 +101,8 @@ func TestQueryEvidenceChain_DegradesHonestlyWhenLinksMissing(t *testing.T) {
 		HypothesisSummary: "factors=[amihud_illiq(lb=20,w=1)]",
 		Level:             "pass_raw",
 	})
-	if err := AdmitFactorEvidence(store, asOf, "amihud_illiq", "exp_amihud_1"); err != nil {
-		t.Fatalf("AdmitFactorEvidence 失败: %v", err)
+	if err := LinkFactorToExperiment(store, "amihud_illiq", "exp_amihud_1"); err != nil {
+		t.Fatalf("LinkFactorToExperiment 失败: %v", err)
 	}
 
 	chain, err := QueryEvidenceChain(store, "amihud_illiq", asOf)

@@ -1,21 +1,7 @@
-// Package aiplane 实现 M4 AI 数据平面（docs/方案-BanDB-时态内核与AI数据平面.md
-// §M4）：让"Agent 只读真相、只写提议、引擎裁决"成为正式接口。
-//
-// 范围（原文五项）：
-//  1. Context API：为研究员 agent 组装确定性上下文包（数据集版本、测过哪些
-//     因子、最近判决、策略状态、风控红线）——同一请求（同一 as_of + 同一
-//     底层账本状态）两次调用逐字节相同。
-//  2. Proposal API：agent 只能提交假设/因子/实验提议；引擎负责指纹、相似度、
-//     证据关前置检查、入账（Proposal 对象走时态版本语义，不可变）。
-//  3. FactorSimilarity：因子收益相关性边存储与查询；相关性 >0.7 自动打
-//     suspect_duplicate 标记并拒绝进证据关（结构化拒绝，reason 机读）。
-//     相关性计算输入（因子收益序列）由调用方提交，本包只存边与判定，不在
-//     库内重算因子——职责分离。
-//  4. 证据图谱查询：factor -> experiment -> strategy -> paper -> review
-//     一次查询走完——"一次查询"指调用方只需要一次 QueryEvidenceChain 调用，
-//     内部依次对每一跳做前缀扫描（BTree 前缀扫描，见 keys.go 的键布局），
-//     不是底层存储只发生一次扫描，也不引入图数据库。
-//  5. Agent 产出（推荐/复盘）落成 Proposal 对象，由确定性管道裁决。
+// Package aiplane 保存并查询研究提议、相似度记录和证据关系。
+// Context 按 as_of 组装研究数据；因子计算、相似性判断和研究推进由调用方负责。
+// 证据链查询沿 factor -> experiment -> strategy -> paper -> review 前缀逐跳读取，
+// 仅组装已记录的事实，不替上游判断是否采纳因子或进入实盘。
 //
 // 依赖关系：本包依赖 internal/researchdata（复用其 Store 接口形状与 V2Store 的
 // GetAsOf/ListPrefix 能力）与 internal/temporal（Fingerprint 风格一致的

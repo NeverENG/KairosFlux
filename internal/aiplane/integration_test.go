@@ -152,15 +152,15 @@ func TestEvidenceChain_EndToEnd_RealRegistryData_AnswersAmihudQuestions(t *testi
 	}
 
 	// 问题 3+4："进了哪个策略、模拟盘如何"——通过证据图谱查询。真实数据里
-	// factor->experiment 这条边此前从未被 AdmitFactorEvidence 建立过（M4
+	// factor->experiment 这条边此前从未被 LinkFactorToExperiment 建立过（M4
 	// 是第一次接入这条能力），所以这里先以 amihud_illiq 为结构化 factor
 	// 名（来自 matches[0] 的 hypothesis_summary 人工确认，不是程序化解析）
 	// 显式把它接入证据图谱，再查询——这一步模拟"引擎已经把这条实验计入了
 	// amihud_illiq 因子"的裁决动作。
 	const factorName = "amihud_illiq"
 	for _, m := range matches {
-		if err := AdmitFactorEvidence(store, asOf, factorName, m.Fingerprint); err != nil {
-			t.Fatalf("AdmitFactorEvidence 失败(fp=%s): %v", m.Fingerprint, err)
+		if err := LinkFactorToExperiment(store, factorName, m.Fingerprint); err != nil {
+			t.Fatalf("LinkFactorToExperiment 失败(fp=%s): %v", m.Fingerprint, err)
 		}
 	}
 

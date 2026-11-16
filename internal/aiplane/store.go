@@ -30,7 +30,7 @@ type PrefixLister interface {
 }
 
 // ReadWriter 组合 Writer/AsOfReader/PrefixLister，是本包大多数装配函数
-// （SubmitProposal/AdmitFactorEvidence/BuildContext 等）的参数类型——调用方
+// （SubmitProposal/LinkFactorToExperiment/BuildContext 等）的参数类型——调用方
 // 只需要构造一个同时满足三者的对象（生产用 *researchdata.V2Store，测试用本包的
 // fakeReadWriter）。
 type ReadWriter interface {

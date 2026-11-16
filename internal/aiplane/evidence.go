@@ -72,50 +72,20 @@ func putEdgeIfChanged(rw ReadWriter, kind ObjectKind, key string, payload []byte
 	return nil
 }
 
-// AdmitFactorEvidence 是"进证据关"的唯一入口（任务书第 3 项："相关性>0.7
-// 自动打 suspect_duplicate 标记并拒绝进证据关"）。factor 必须是调用方
-// 显式传入的结构化标识（如 Proposal.FactorName），不能是从任何自由文本
-// （hypothesis_summary 等）解析出来的派生值——见 experiment.go
-// SearchExperimentsByMention 的文档，那是查询/展示用途，与本函数的准入
-// 判定职责严格分开。
-//
-// 判定依据：factor 是否与某个"已经先进了证据关"的因子存在
-// SuspectDuplicate==true 的相似度边（FindSuspectDuplicate，见
-// similarity.go；只拒绝后进入的一方，不追溯拒绝已经先入证据关的一方，见该
-// 函数文档与 riskredlines/redlines.json 的 factor_similarity_gate）。命中
-// 则返回结构化 *SuspectDuplicateError，不写入 evidence:factor: 边。未命中
-// 则以引擎身份幂等写入 evidence:factor:{factor}:{experimentFingerprint}。
-func AdmitFactorEvidence(rw ReadWriter, asOfNanos int64, factor, experimentFingerprint string) error {
+// LinkFactorToExperiment records the upstream-chosen factor/experiment relation.
+// It validates identifiers and preserves the existing evidence:factor key and payload;
+// similarity review and admission decisions are not made by the database.
+func LinkFactorToExperiment(rw ReadWriter, factor, experimentFingerprint string) error {
 	if factor == "" {
 		return fmt.Errorf("factor 不能为空")
 	}
 	if experimentFingerprint == "" {
 		return fmt.Errorf("experimentFingerprint 不能为空")
 	}
-	dup, edge, err := FindSuspectDuplicate(rw, factor, asOfNanos)
-	if err != nil {
-		return err
-	}
-	if dup {
-		conflicting := edge.FactorA
-		if conflicting == factor {
-			conflicting = edge.FactorB
-		}
-		return &SuspectDuplicateError{
-			Factor:            factor,
-			ConflictingFactor: conflicting,
-			Correlation:       edge.Correlation,
-			Threshold:         SimilarityThreshold,
-		}
-	}
-	key := evidenceFactorKey(factor, experimentFingerprint)
-	return putEdgeIfChanged(rw, KindEvidenceEdge, key, encodeEdgeMarker(factor, experimentFingerprint))
+	return putEdgeIfChanged(rw, KindEvidenceEdge, evidenceFactorKey(factor, experimentFingerprint), encodeEdgeMarker(factor, experimentFingerprint))
 }
 
-// LinkExperimentToStrategy/LinkStrategyToPaper/LinkPaperToReview 是引擎裁决
-// 管道把后续几跳证据边落账的入口——与 AdmitFactorEvidence 不同，这几跳不
-// 涉及 FactorSimilarity 门禁（相似度门禁只发生在"因子第一次进证据关"这一
-// 步），只是"引擎已经确认了这条引用关系，落成可查询的边"。
+// LinkExperimentToStrategy/LinkStrategyToPaper/LinkPaperToReview 记录上游确认的后续证据关系。
 func LinkExperimentToStrategy(rw ReadWriter, experimentFingerprint, strategyName string) error {
 	key := evidenceExperimentKey(experimentFingerprint, strategyName)
 	return putEdgeIfChanged(rw, KindEvidenceEdge, key, encodeEdgeMarker(experimentFingerprint, strategyName))
@@ -178,7 +148,7 @@ type EvidenceChain struct {
 	Factor      string               `json:"factor"`
 	Experiments []ExperimentEvidence `json:"experiments"`
 	// Degraded 记录哪些环节没有查到关联对象（人类可读诊断信息，纯展示用途，
-	// 不参与任何后续裁决——与 AdmitFactorEvidence 的判定输入严格区分）。
+	// 不参与任何后续裁决）。
 	Degraded []string `json:"degraded"`
 }
 
@@ -237,7 +207,7 @@ func QueryEvidenceChain(rw ReadWriter, factor string, asOfNanos int64) (Evidence
 		return EvidenceChain{}, fmt.Errorf("查 factor->experiment 边失败: %w", err)
 	}
 	if len(experimentFPs) == 0 {
-		chain.Degraded = append(chain.Degraded, fmt.Sprintf("factor=%s 未查到任何已入证据关的 experiment（尚未 AdmitFactorEvidence，或该因子从未被测试过）", factor))
+		chain.Degraded = append(chain.Degraded, fmt.Sprintf("factor=%s 未查到关联的 experiment（尚未记录证据边，或该因子从未被测试过）", factor))
 		return chain, nil
 	}
 
