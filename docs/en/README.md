@@ -1,0 +1,13 @@
+# KairosFlux documentation
+
+[简体中文](../zh-CN/README.md) · [Project home](../../README.md)
+
+| Topic | Contents |
+| --- | --- |
+| [Purpose and responsibilities](overview.md) | The boundary between QuantScore, QuantBrew, and KairosFlux |
+| [Architecture and current state](architecture.md) | Entry points, storage, agent APIs, optional features |
+| [Data and time semantics](data-model.md) | Quote keys, versions, research evidence, and query limits |
+| [Operations, backup, and verification](operations.md) | Local startup, data directory, tests, and backup |
+| [Kair protocol entry point](protocol.md) | Implementation and test-vector references |
+
+This is an entry point for the current architecture, not an archive of iteration notes. Unimplemented changes are explicitly labeled on their respective pages.
