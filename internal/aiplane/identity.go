@@ -23,8 +23,7 @@ const (
 	// 现在由 service/router_v2.go 的 handlePutVersioned 在协议层强制，不再
 	// 只是本包 API 层的一道闸门（见 doc.go"已知边界"一节的更新）。
 	RoleAgent = identity.RoleAgent
-	// RoleEngine：确定性裁决管道自身（本包内部函数、jobctl reconcile loop
-	// 等）。可以写任意已定义 kind——引擎才有权把 Proposal 裁决落成
+	// RoleEngine：确定性裁决管道自身（本包内部函数、实验记录导入等）。可以写任意已定义 kind——引擎才有权把 Proposal 裁决落成
 	// Strategy/PaperAccount/证据边等正式对象。
 	RoleEngine = identity.RoleEngine
 )
@@ -36,7 +35,7 @@ const engineSource = "aiplane"
 
 // ObjectKind 是本包管理的对象种类枚举（对应方案 §3.2 对象模型表的子集：
 // M4 范围只新增 Proposal/FactorSimilarity/证据边三类，其余 kind 沿用既有
-// 包——Job* 归 jobctl，Experiment 记录沿用 jobctl 的 strategy:index 前缀，
+// 数据：Experiment 记录沿用 jobctl 的 strategy:index 前缀，
 // 见 doc.go "已知边界"一节）。枚举表达角色/种类，不用字符串前缀匹配承载
 // 语义——WriteAsAgent 的判断只对 ObjectKind 做 == 比较，不解析 logicalKey
 // 字符串本身去猜它是什么种类的对象。

@@ -11,7 +11,7 @@ import (
 // Go 接口按方法集隐式满足，jobctl.V2Store/jobctl 测试用的 fakeStore 都天然
 // 满足本接口，不需要额外的适配层）。之所以在本包重新声明一遍而不是直接
 // 引用 jobctl.Store 类型，是因为 aiplane 的写路径调用方（agent/engine）不
-// 应该被迫依赖 jobctl 包里"Job 控制面"这个不相关的语义命名——接口属于消费者
+// 应该被迫依赖 遗留的 jobctl 包名——接口属于消费者
 // 这条 Go 惯例的直接体现，两个接口结构相同是巧合，不是耦合。
 type Writer interface {
 	PutVersioned(logicalKey string, payload []byte, source string) (seq uint64, err error)

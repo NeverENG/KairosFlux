@@ -12,15 +12,7 @@ import (
 	"github.com/ChronoBrew/KairosFlux/proto"
 )
 
-// V2Store 是 Store 的生产实现：对 KairosFlux 服务端发起 v2 协议请求，只用
-// PUT_VERSIONED / GET_AS_OF 两个既有 opcode（M2 并行分支在扩 storage 版本
-// 记录编码与新增 opcode，本包不碰那部分，也不需要新 opcode）。
-//
-// 拼帧方式与 cmd/kairosflux-cli/temporal.go 的 putVersioned/getAsOf 同一
-// 思路（"只用 kairnet/negotiate 与 kairnet/codec 已经导出的协商/拼帧函数
-// 拼出最小客户端，不去扩建一整套 v2 SDK"），区别是这里维护一条长连接给
-// reconcile loop 反复复用，而不是每次都新拨号——reconcile loop 的调用
-// 频率远高于 CLI 的一次性调用，每次都拨号+协商的开销不适合长驻进程。
+// V2Store is a reusable v2 client for versioned research data and as-of reads.
 type V2Store struct {
 	addr    string
 	timeout time.Duration
@@ -60,13 +52,7 @@ func (s *V2Store) ensureConn() (net.Conn, error) {
 	return conn, nil
 }
 
-// roundTrip 发一帧、等一帧响应；corr_id 固定为 1，与 CLI 瘦客户端同理——
-// 这条连接对这两个 opcode 只做"发一个请求、等一个响应"，不需要 corr_id
-// 区分并发请求（reconcile loop 是单进程串行调用 Store，见 reconciler.go
-// 的调用方式，同一时刻只有一个请求在途）。出错时关闭并清空连接，下次调用
-// 触发重连——不在这里自动重试，重试策略是 reconciler 的职责（区分"这次
-// 网络故障"与"job 执行体本身失败"两种不同的重试语义，混在一起会让重试
-// 计数的含义变得含糊）。
+// roundTrip serializes requests on one connection and drops it after a transport error.
 func (s *V2Store) roundTrip(opcode uint8, payload []byte) (*codec.MessageV2, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -158,36 +144,7 @@ func (s *V2Store) GetLatest(logicalKey string) ([]byte, bool, error) {
 	return payload, true, nil
 }
 
-// ListVersions 实现对 LIST_VERSIONS opcode 的调用（既有 opcode，不是新增）。
-// 用途两处：启动恢复扫描（Reconciler.Recover，读取事件账本重建 status——
-// "状态=事件的函数"）与集成测试直接对真实账本断言版本数（"结果与账本一致"
-// 这条验收标准要求验证的是 service.TemporalStore 的真实版本序列，不是 Store
-// 接口某个内存模拟实现之下的版本序列）。Reconciler 的热路径仍然只用
-// PutVersioned/GetLatest。
-func (s *V2Store) ListVersions(logicalKey string) ([]proto.VersionEntryView, error) {
-	resp, err := s.roundTrip(codec.OpcodeListVersions, proto.EncodeKeyOnlyFrame([]byte(logicalKey)))
-	if err != nil {
-		return nil, err
-	}
-	if resp.Header.Opcode != codec.OpcodeOK {
-		return nil, errFromErrResp(resp)
-	}
-	versions, ok := proto.DecodeListVersionsResponse(resp.Payload)
-	if !ok {
-		return nil, fmt.Errorf("响应负载无法解析")
-	}
-	return versions, nil
-}
-
-// GetAsOf 实现 M4 AI 数据平面（internal/aiplane）依赖的 as-of 读接口：与
-// GetLatest 同一个 opcode（GET_AS_OF），区别是 asOfNanos 由调用方显式传入而
-// 不是取 time.Now()——Context API 的"同请求两次调用逐字节相同"验收要求
-// as-of 时间点由请求本身固定，不能让两次调用因为墙钟前进而读到不同版本。
-// 刻意不让 GetLatest 复用本函数（而是保留 GetLatest 原有实现不动）：这是
-// 本仓库 CLAUDE.md 第 2 条"外科手术式修改"的直接体现——GetLatest 是
-// Reconciler 热路径依赖的既有实现，本次任务不改它一个字符，只在旁边新增
-// 一个参数化版本。两者身体相同是这条 opcode 语义本身如此，不是刻意的代码
-// 复用决策。
+// GetAsOf reads the version visible at an explicitly chosen write timestamp.
 func (s *V2Store) GetAsOf(logicalKey string, asOfNanos int64) ([]byte, bool, error) {
 	resp, err := s.roundTrip(codec.OpcodeGetAsOf, proto.EncodeAsOfFrame([]byte(logicalKey), asOfNanos))
 	if err != nil {

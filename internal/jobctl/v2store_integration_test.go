@@ -1,10 +1,6 @@
 package jobctl
 
-// V2Store 端到端集成测试：起一个真实的 KairosFlux v2 服务端（与
-// cmd/kairosflux-server 同样的接线），证明 jobctl.Reconciler 真的能通过
-// PUT_VERSIONED/GET_AS_OF opcode 操作 job: 键空间——单元测试（reconciler_
-// test.go）用 fakeStore 验证的是"决策逻辑幂等"，这里额外证明"决策逻辑接到
-// 真实协议上也是同一套行为"，两者互补、不重复。
+// V2Store integration test runs a real v2 server for versioned registry imports.
 //
 // 服务端起法复制自 service/router_v2_integration_test.go 的
 // startRouterV2TestServer（本包在 service 包之外，用它导出的
@@ -15,6 +11,7 @@ import (
 	"net"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,7 +79,7 @@ func TestV2Store_PutVersionedThenGetLatestRoundTrip(t *testing.T) {
 	store := NewV2Store(addr, 3*time.Second)
 	defer store.Close()
 
-	seq, err := store.PutVersioned("job:status:integration_job", []byte(`{"phase":"succeeded"}`), EngineSource)
+	seq, err := store.PutVersioned("strategy:index:integration_experiment", []byte(`{"phase":"succeeded"}`), EngineSource)
 	if err != nil {
 		t.Fatalf("PutVersioned 失败: %v", err)
 	}
@@ -90,7 +87,7 @@ func TestV2Store_PutVersionedThenGetLatestRoundTrip(t *testing.T) {
 		t.Fatalf("首次写入 seq 应为 1，实际 %d", seq)
 	}
 
-	payload, found, err := store.GetLatest("job:status:integration_job")
+	payload, found, err := store.GetLatest("strategy:index:integration_experiment")
 	if err != nil {
 		t.Fatalf("GetLatest 失败: %v", err)
 	}
@@ -101,7 +98,7 @@ func TestV2Store_PutVersionedThenGetLatestRoundTrip(t *testing.T) {
 		t.Fatalf("读回内容不符: %s", payload)
 	}
 
-	_, found, err = store.GetLatest("job:status:never_written")
+	_, found, err = store.GetLatest("strategy:index:never_written")
 	if err != nil {
 		t.Fatalf("GetLatest 对未写入键出错: %v", err)
 	}
@@ -110,61 +107,24 @@ func TestV2Store_PutVersionedThenGetLatestRoundTrip(t *testing.T) {
 	}
 }
 
-// TestReconciler_OverRealV2Store 是"同一 Job 重跑一万次，结果与账本一致"
-// 这条验收标准对真实账本的版本：真实 v2 协议 + 真实 service.TemporalStore
-// 语义（seqCache/seqLocks/两写崩溃安全顺序/:current 指针）+ 假 Clock/
-// Executor（不需要真的起子进程）。TestReconcile_TenThousandRerunsAreIdempotent
-// 用 fakeStore 证明的是"reconcile 决策逻辑本身幂等"；本测试额外证明"这套
-// 决策接到真实 PUT_VERSIONED/GET_AS_OF/LIST_VERSIONS opcode 上、真实账本
-// 的版本数不随重跑次数增长"——不是只对着自己写的内存模拟看起来幂等。
-//
-// 用 LIST_VERSIONS（既有 opcode，只在这里做审计断言，Reconciler 热路径
-// 仍然只用 PutVersioned/GetLatest）直接查真实账本的版本数，而不是只看
-// Executor 调用次数——调用次数相同也可能账本背后多写了空版本，两件事要
-// 分别断言。
-func TestReconciler_OverRealV2Store(t *testing.T) {
+// A real import must create the index consumed by the AI research context.
+func TestRegistryImporterOverV2Store(t *testing.T) {
 	addr := startTestKairosFluxServer(t)
 	store := NewV2Store(addr, 3*time.Second)
 	defer store.Close()
-
-	clock := newFakeClock(fixedTestTime())
-	exec := newCountingExecutor(ExecResult{ExitCode: 0})
-	r := &Reconciler{Store: store, Executor: exec, Clock: clock, AlertSink: &nullAlertSink{}}
-	spec := testSpec("real_proto_job")
-
-	const reruns = 10000
-	start := time.Now()
-	for i := 0; i < reruns; i++ {
-		if _, err := r.Reconcile(spec); err != nil {
-			t.Fatalf("第 %d 次 Reconcile 出错: %v", i, err)
+	input := `{"verdict":{"fingerprint":"integration-001","level":"pass_raw"}}` + "\n"
+	imp := &RegistryImporter{Store: store}
+	for i := 0; i < 2; i++ {
+		result, err := imp.ImportReader(strings.NewReader(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 && result.Imported != 1 || i == 1 && result.Unchanged != 1 {
+			t.Fatalf("import %d: %+v", i, result)
 		}
 	}
-	elapsed := time.Since(start)
-	t.Logf("对真实 v2 协议服务端重跑 %d 次真实耗时: %s", reruns, elapsed)
-
-	if got := exec.callCount(); got != 1 {
-		t.Fatalf("Executor 应只被调用 1 次，实际 %d 次", got)
+	raw, found, err := store.GetLatest(RegistryIndexKey("integration-001"))
+	if err != nil || !found || string(raw) != strings.TrimSpace(input) {
+		t.Fatalf("index read: found=%t raw=%s err=%v", found, raw, err)
 	}
-
-	statusVersions, err := store.ListVersions(StatusKey(spec.Name))
-	if err != nil {
-		t.Fatalf("LIST_VERSIONS(job:status) 出错: %v", err)
-	}
-	if len(statusVersions) != 2 {
-		t.Fatalf("真实账本里 job:status:%s 应恰好 2 条版本（①running + ④终态），实际 %d 条", spec.Name, len(statusVersions))
-	}
-	eventVersions, err := store.ListVersions(EventsKey(spec.Name))
-	if err != nil {
-		t.Fatalf("LIST_VERSIONS(job:events) 出错: %v", err)
-	}
-	if len(eventVersions) != 1 {
-		t.Fatalf("真实账本里 job:events:%s 应恰好 1 条版本，实际 %d 条", spec.Name, len(eventVersions))
-	}
-
-	// 键空间实测样例：把真实账本里存的那一条版本原样打进测试日志（不是
-	// 靠描述"应该长什么样"，是真的从 GET_AS_OF/LIST_VERSIONS 读回来的字节）。
-	t.Logf("键空间实测样例 job:status:%s seq=%d payload=%s",
-		spec.Name, statusVersions[0].Seq, statusVersions[0].Payload)
-	t.Logf("键空间实测样例 job:events:%s:v%020d payload=%s",
-		spec.Name, eventVersions[0].Seq, eventVersions[0].Payload)
 }
