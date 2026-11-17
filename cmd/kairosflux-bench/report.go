@@ -73,22 +73,3 @@ func ProgressBar(current, total int64, start time.Time) string {
 	return fmt.Sprintf("\r[%s] %.0f%% | %d/%d ops | %.0f qps | %s elapsed",
 		bar, pct, current, total, qps, elapsed.Round(time.Second))
 }
-
-func modeDescription(cfg Config) string {
-	switch cfg.Mode {
-	case "put":
-		return fmt.Sprintf("PUT only (%d B keys, %d B values, %d workers)",
-			cfg.KeySize, cfg.ValueSize, cfg.Workers)
-	case "get":
-		return fmt.Sprintf("GET only (%d keys, %d workers)",
-			cfg.KeyCount, cfg.Workers)
-	case "delete":
-		return fmt.Sprintf("DELETE only (%d keys, %d workers)",
-			cfg.KeyCount, cfg.Workers)
-	case "mixed":
-		return fmt.Sprintf("Mixed PUT/GET (%.0f%% reads, %d workers)",
-			cfg.ReadRatio*100, cfg.Workers)
-	default:
-		return cfg.Mode
-	}
-}
