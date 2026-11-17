@@ -245,8 +245,7 @@ func (r *RouterV2) applyWrite(req kairnet.RequestV2) (accepted bool, errCode uin
 			// schema）各自 .Add(1) 过对应的 FramesDroppedXxx 计数器，这里
 			// 不需要、也不应该重复计数。
 			//
-			// code==0 的丢弃原因（oversized_value/non_monotonic_timestamp/
-			// unknown_declared_type）沿用 M1 之前的行为：统一归入
+			// code==0 的丢弃原因（oversized_value/unknown_declared_type）沿用 M1 之前的行为：统一归入
 			// ErrCodeSchemaValidation 这个通用桶——细分这些原因各自的错误码是
 			// §10 错误码分类学整体的范围（0x1xxx/0x2xxx 段），不是本次 M1 契约层
 			// 任务的目标（"缺列/单位错误结构化拒绝"，见方案 M1 验收标准）。

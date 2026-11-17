@@ -130,7 +130,7 @@ func startRouterV2TestServerWithGuardrail(t *testing.T, windowN uint32, guardrai
 
 	kv := NewKVServer()
 	router := NewRouter(kv)
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	routerV2 := NewRouterV2(kv, filter, windowN)
 

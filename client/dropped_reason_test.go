@@ -62,7 +62,7 @@ func startServerWithFilter(t *testing.T, filter *ingesthook.Filter) string {
 // 被落盘前清洗（这里用 quote: schema 校验）拒绝的写入，Go 客户端不仅收到
 // ErrDropped，还能从错误信息里读到具体原因——不再只知道"dropped"、猜不出为什么。
 func TestPut_DroppedByFilterCarriesReason(t *testing.T) {
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	addr := startServerWithFilter(t, filter)
 	c := newClient(t, addr)
 
@@ -85,7 +85,7 @@ func TestPut_DroppedByFilterCarriesReason(t *testing.T) {
 // TestPut_MalformedFrameDroppedCarriesReason 验证畸形帧（非 schema 校验）的丢弃
 // 同样带 reason——本轮修复覆盖的是 Handle 的所有丢弃分支，不只是 schema 分支。
 func TestPut_MalformedFrameDroppedCarriesReason(t *testing.T) {
-	filter := ingesthook.NewFilter(nil, 4 /* maxValueLen */, false)
+	filter := ingesthook.NewFilter(4 /* maxValueLen */)
 	addr := startServerWithFilter(t, filter)
 	c := newClient(t, addr)
 

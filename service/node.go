@@ -61,9 +61,8 @@ func NewNode() (*Node, error) {
 	// 按配置开启网关自适应准入（默认关闭）。
 	EnableAdmissionFromConfig(router)
 
-	// 默认只做帧和已声明类型的 schema 校验，不替调用方改写研究数据，
-	// 也不按设备时间戳启发式拒绝无类型键。
-	filter := ingesthook.NewFilter(nil, 0, false)
+	// 校验写入帧、长度与已声明类型的 schema，不改写研究数据。
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 
 	// v2 业务处理器（Kair v2：ack 三档协商、窗口写入、STAT/BYE 对账）。

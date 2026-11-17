@@ -6,7 +6,7 @@ import "encoding/binary"
 // GET/DELETE 请求负载布局（小端）：[keyLen u32][key]。
 //
 // 这两种布局此前在 service.Router（handlePut/handleGet/handleDelete）与
-// service/ingesthook.Filter（parsePut，供 gRPC 入口复用同一套清洗规则）里
+// service/ingesthook.Filter.Handle（供 Kair 入口解析帧）里
 // 各自独立实现过一遍——两处对同一段二进制解析各写一份，改一处容易漏改
 // 另一处。这里定义唯一实现，两个调用方都改为调用它。
 //

@@ -45,7 +45,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | Module | Reading entry point |
 | --- | --- |
 | [service/](../../service/) | `Node`, KV service, v1/v2 routers, and temporal-store assembly; distinguish ordinary PUT from versioned operations. |
-| [service/ingesthook/](../../service/ingesthook/) | Pre-write frame and schema validation; production defaults do not redact fields or enforce device timestamps. This hook is **not** an agent tool registry. |
+| [service/ingesthook/](../../service/ingesthook/) | Pre-write frame, value-size and schema validation; no device-specific redaction or timestamp heuristic. This hook is **not** an agent tool registry. |
 | [service/ingesthook/schema/](../../service/ingesthook/schema/) | Loading registered data contracts and validating quotes. |
 | [storage/](../../storage/) | LSM/SSTable, range scans, compaction, and MemTable; standalone WAL wiring is in `service/`. |
 | [internal/temporal/](../../internal/temporal/) | Storage/network-independent version keys, as-of selection, and fingerprint semantics. |

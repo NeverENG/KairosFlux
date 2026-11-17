@@ -211,8 +211,8 @@ func sendDropped(req kairnet.Request, reason string) {
 
 // handlePut 处理 PUT 操作
 func (r *Router) handlePut(data []byte, request kairnet.Request) {
-	// 帧解析委托给 proto.DecodePutFrame（与 ingesthook.Filter 的 parsePut 共用
-	// 同一实现，见该函数注释）；此前这里与那边各自实现过一遍同一段二进制解析。
+	// 帧解析委托给 proto.DecodePutFrame（与 ingesthook.Filter.Handle 共用
+	// 同一实现）；此前这里与那边各自实现过一遍同一段二进制解析。
 	key, value, ok := proto.DecodePutFrame(data)
 	if !ok {
 		// 此前「长度头不足 8 字节」与「声明长度超出实际数据」是两条不同措辞、
