@@ -7,7 +7,6 @@ func TestCountersAndSnapshot(t *testing.T) {
 	before := Take()
 
 	FramesDroppedMalformed.Add(2)
-	FramesDroppedNonMonotonic.Add(1)
 	Writes.Add(5)
 	WriteErrors.Add(1)
 	BackpressureStalls.Add(3)
@@ -16,9 +15,6 @@ func TestCountersAndSnapshot(t *testing.T) {
 
 	if d := after.DroppedMalformed - before.DroppedMalformed; d != 2 {
 		t.Fatalf("DroppedMalformed 增量应为 2，得到 %d", d)
-	}
-	if d := after.DroppedNonMonotonic - before.DroppedNonMonotonic; d != 1 {
-		t.Fatalf("DroppedNonMonotonic 增量应为 1，得到 %d", d)
 	}
 	if d := after.Writes - before.Writes; d != 5 {
 		t.Fatalf("Writes 增量应为 5，得到 %d", d)

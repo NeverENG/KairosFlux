@@ -26,15 +26,8 @@ func main() {
 
 	ha := service.NewHA(kvServer)
 
-	// 挂载与 kairnet 入口同一套清洗规则（见 service/ingesthook.Filter），修复 gRPC
-	// 入口此前直接 kv.Write、完全跳过畸形值/单调性/schema 校验的缺口。
-	//
-	// dropBackward 固定为 false：quote:<日期>:<代码> 这类已注册 schema 的 key
-	// 现在会自动跳过单调性启发式（见 service/ingesthook.Filter.Validate），
-	// 但本命令是通用基准测试入口，可能承载任意未来的、尚未注册 schema 的 key
-	// 类型——对那些类型，parseKey 的 "设备:时间戳" 启发式仍可能对末段非时间戳
-	// 的 key 产生误判。false 是对未知 key 类型的保守默认值，不是遗留的规避。
-	filter := ingesthook.NewFilter(nil, 0, false)
+	// 挂载与 Kair 入口相同的长度与 schema 校验。
+	filter := ingesthook.NewFilter(0)
 	grpcSrv := kvgrpc.NewGRPCServer(kvServer, filter)
 
 	fmt.Println("Starting gRPC Server...")

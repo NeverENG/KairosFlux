@@ -45,7 +45,7 @@ func benchPutRequests(n int) []*fakePreHandleReq {
 // setupBenchKV 按 standalone 模式构造一个独立临时目录的 KVServer，模式与
 // service/scan_integration_test.go 的 TestKVServer_Scan 一致，供落盘基准复用。
 // MaxMemTableSize 取大，使基准期间不触发 flush，专注测 Router 链路本身
-// （PreHandle 校验/脱敏 + 帧解析 + WAL/memtable 写入），不是 flush/compaction
+// （PreHandle 校验 + 帧解析 + WAL/memtable 写入），不是 flush/compaction
 // 的开销（那部分已有独立 benchmark，见 storage/bench_test.go）。
 func setupBenchKV(b *testing.B) *KVServer {
 	b.Helper()
@@ -64,7 +64,7 @@ func setupBenchKV(b *testing.B) *KVServer {
 }
 
 // benchNopStore 是不落盘的 KVStore 实现，供 BenchmarkRouterHandlePut_NoDisk
-// 隔离出「Router 全链路（PreHandle 校验/脱敏 + 帧解析）」本身的开销，把
+// 隔离出「Router 全链路（PreHandle 校验 + 帧解析）」本身的开销，把
 // WAL fsync（比网关层清洗逻辑慢约三个数量级，会把后者的差异淹没在噪声里）
 // 排除在计时之外。
 type benchNopStore struct{}
@@ -78,16 +78,16 @@ func (benchNopStore) Scan(start, end []byte, pred predicate.Predicate, limit int
 }
 
 // BenchmarkRouterHandlePut 测网关写入的真实全链路（含磁盘 fsync）：PreHandle
-// （ingesthook 的 schema 校验 + 脱敏）+ Handle（Router.handlePut 解帧 +
+// （ingesthook 的 schema 校验）+ Handle（Router.handlePut 解帧 +
 // KVServer.Write 落盘），接线方式与生产 cmd/kairosflux-server/server.go 一致（同一组
-// redactFields/maxValueLen/dropBackward 参数，同样挂 filter.Handle 为
+// maxValueLen 参数，同样挂 filter.Handle 为
 // PreHandle）。WAL fsync 主导此基准的 ns/op（约 3-4ms/op，比网关层清洗逻辑
 // 高三个数量级），因此本基准的 ns/op 不适合用来评估网关层优化的收益——
 // 那部分收益看 BenchmarkRouterHandlePut_NoDisk 与 allocs/op。
 func BenchmarkRouterHandlePut(b *testing.B) {
 	kv := setupBenchKV(b)
 	router := NewRouter(kv)
-	filter := ingesthook.NewFilter([]string{"gps", "user_id"}, 0, true)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	reqs := benchPutRequests(benchKeyCardinality)
 
@@ -104,11 +104,11 @@ func BenchmarkRouterHandlePut(b *testing.B) {
 // BenchmarkRouterHandlePut_NoDisk 与 BenchmarkRouterHandlePut 走同一条
 // PreHandle+Handle 全链路，唯一区别是落盘换成 benchNopStore（无 I/O）。
 // 这是评估「合并双重反序列化」等网关层优化的主基准：fsync 被排除后，
-// ns/op 与 allocs/op 才能真实反映 PreHandle（schema 校验 + 脱敏）+ 帧解析
+// ns/op 与 allocs/op 才能真实反映 PreHandle（schema 校验）+ 帧解析
 // 本身的开销变化。
 func BenchmarkRouterHandlePut_NoDisk(b *testing.B) {
 	router := NewRouterWithStore(benchNopStore{})
-	filter := ingesthook.NewFilter([]string{"gps", "user_id"}, 0, true)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	reqs := benchPutRequests(benchKeyCardinality)
 
@@ -122,7 +122,7 @@ func BenchmarkRouterHandlePut_NoDisk(b *testing.B) {
 	}
 }
 
-// BenchmarkKVServerWriteDirect 是跳过 Router 全链路（PreHandle 校验/脱敏 +
+// BenchmarkKVServerWriteDirect 是跳过 Router 全链路（PreHandle 校验 +
 // handlePut 帧解析）、直调 KVServer.Write 落盘的对照组：与
 // BenchmarkRouterHandlePut 的差值即网关层（解帧 + 清洗）本身的开销（同样受
 // fsync 主导，读法与 BenchmarkRouterHandlePut 的说明一致）。

@@ -3,7 +3,6 @@ package kvgrpc
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -109,7 +108,7 @@ func TestGRPCServer_NilFilterSkipsValidation(t *testing.T) {
 // TestGRPCServer_PutRejectsOversizedValue 验证 gRPC Put 现在会经过与 kairnet 入口
 // 相同的 value 长度限制——这是清洗缺口修复后新增的行为。
 func TestGRPCServer_PutRejectsOversizedValue(t *testing.T) {
-	filter := ingesthook.NewFilter(nil, 4, false) // maxValueLen=4
+	filter := ingesthook.NewFilter(4) // maxValueLen=4
 	srv := NewGRPCServer(newStandaloneKVServer(t), filter)
 	ctx := context.Background()
 
@@ -130,7 +129,7 @@ func TestGRPCServer_PutRejectsOversizedValue(t *testing.T) {
 // TestGRPCServer_PutRejectsSchemaViolation 验证 gRPC Put 现在会经过 schema 校验：
 // quote: 前缀的记录若不满足 QuoteSnapshot 规则（此处 open<=0），应被拒绝且不落盘。
 func TestGRPCServer_PutRejectsSchemaViolation(t *testing.T) {
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	srv := NewGRPCServer(newStandaloneKVServer(t), filter)
 	ctx := context.Background()
 
@@ -150,11 +149,10 @@ func TestGRPCServer_PutRejectsSchemaViolation(t *testing.T) {
 	}
 }
 
-// TestGRPCServer_PutAcceptsValidQuoteAndAppliesRedaction 验证合法行情记录经 gRPC 写入
-// 成功，且脱敏字段（若配置）在落盘前被改写——脱敏逻辑与 kairnet 入口共用同一个
-// Filter.Validate，行为应一致。
-func TestGRPCServer_PutAcceptsValidQuoteAndAppliesRedaction(t *testing.T) {
-	filter := ingesthook.NewFilter([]string{"analyst_note"}, 0, false)
+// TestGRPCServer_PutPreservesValidQuotePayload 验证合法行情记录经 gRPC 写入
+// 成功，且不会改写业务字段——gRPC 与 Kair 入口共用 Filter.Validate。
+func TestGRPCServer_PutPreservesValidQuotePayload(t *testing.T) {
+	filter := ingesthook.NewFilter(0)
 	srv := NewGRPCServer(newStandaloneKVServer(t), filter)
 	ctx := context.Background()
 
@@ -176,7 +174,7 @@ func TestGRPCServer_PutAcceptsValidQuoteAndAppliesRedaction(t *testing.T) {
 	if !getResp.Success {
 		t.Fatalf("写入成功的 key 应能读回")
 	}
-	if got := string(getResp.Value); !strings.Contains(got, "[REDACTED]") {
-		t.Fatalf("落盘的 value 应包含脱敏占位符，得到: %s", got)
+	if got := string(getResp.Value); got != string(value) {
+		t.Fatalf("落盘的 value 应原样保留，得到: %s", got)
 	}
 }

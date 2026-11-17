@@ -36,10 +36,7 @@ import (
 	"github.com/ChronoBrew/KairosFlux/service/ingesthook/schema"
 )
 
-// startRouterV2TestServer 起一个真实服务端：v1 PUT/GET/DEL 路由 + RouterV2，
-// 挂一个不做单调性校验的 ingesthook.Filter（复用 schema 包 init() 自注册的
-// "quote:" 校验器，供本文件的 schema 拒绝场景使用，与 crosslang_test.go 的
-// dropBackward=false 理由相同：quote key 末段是股票代码而非时间戳）。
+// startRouterV2TestServer 起真实服务端，以相同的 Filter 校验 v1/v2 写入。
 func startRouterV2TestServer(t *testing.T, windowN uint32) string {
 	t.Helper()
 
@@ -63,7 +60,7 @@ func startRouterV2TestServer(t *testing.T, windowN uint32) string {
 
 	kv := NewKVServer()
 	router := NewRouter(kv)
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	routerV2 := NewRouterV2(kv, filter, windowN)
 

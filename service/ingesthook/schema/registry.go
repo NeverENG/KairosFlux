@@ -7,7 +7,7 @@
 // validator) 这个旧 API 不删除，只是变成构造一个最小 Descriptor 的兼容外壳（RFC §9.4
 // 明确的渐进式迁移路径），不是第二套并行的注册表。
 //
-// 定位：这一层只管「一条记录内容是否合法、这个类型要不要单调性检查」，不管帧格式
+// 定位：这一层只管「一条记录内容是否合法、类型声明哪些时间语义」，不管帧格式
 // （畸形帧/超限由 service/ingesthook.Filter 处理）也不管传输层（kairnet 裸帧 / gRPC
 // 结构体皆可复用，见 Filter.Validate 的调用方）。
 //
@@ -31,8 +31,7 @@ type Validator interface {
 	Validate(value []byte) error
 }
 
-// TimeKind 声明一个类型是否需要单调性保证，替代 filter.go 里"有没有注册 schema"
-// 这个粗粒度旁路判断（Kair-2 RFC §9.3）。
+// TimeKind 声明类型的时间语义；当前只接受 none，非 none 在加载时拒绝。
 type TimeKind int
 
 const (
@@ -149,8 +148,7 @@ func Lookup(key []byte) (Validator, bool) {
 	return d.Validation, true
 }
 
-// LookupDescriptor 按 key 前缀做最长匹配，返回完整 Descriptor（含 TimeSemantics，
-// 供 filter.go 做单调性分派用）。
+// LookupDescriptor 按 key 前缀做最长匹配，返回完整 Descriptor。
 func LookupDescriptor(key []byte) (Descriptor, bool) {
 	mu.RLock()
 	defer mu.RUnlock()

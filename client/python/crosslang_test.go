@@ -76,9 +76,7 @@ func startCrosslangServer(t *testing.T) string {
 	kv := service.NewKVServer()
 	router := service.NewRouter(kv)
 
-	// dropBackward=false：quote key 的末段是股票代码而非时间戳，与 cmd/kairosflux-grpc-server
-	// 的构造理由相同（见 service/ingesthook.Filter.Validate 的注释）。
-	filter := ingesthook.NewFilter(nil, 2048, false)
+	filter := ingesthook.NewFilter(2048)
 	router.SetPreHandle(filter.Handle)
 
 	srv := kairnet.NewServer()
@@ -381,7 +379,7 @@ func startCrosslangV2Server(t *testing.T, windowN uint32) string {
 
 	kv := service.NewKVServer()
 	router := service.NewRouter(kv)
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	routerV2 := service.NewRouterV2(kv, filter, windowN)
 

@@ -9,17 +9,14 @@ package main
 //  2. 并发客户端 10/50：各自独立 v2 连接并发写 → LIST_WRITES 条数精确 +
 //     seq 全唯一 + 无丢失。
 //  3. 大 payload：1MiB/8MiB 经 v2 PUT_VERSIONED 与 v1 PUT（blob: 未纳管
-//     前缀，末段非数字避开设备时间戳启发式）；32MiB 超过 MaxPackageSize
-//     默认 16MiB 传输层帧长上限，如实记录拒绝行为。
+//     前缀）；32MiB 超过默认 16MiB 帧长上限，如实记录拒绝行为。
 //  4. 畸形帧注入（fuzz 语料回放）：截断头/超长声明/未知 opcode/坏负载/
 //     坏 magic/随机字节 ×100 轮，每轮后健康检查（PUT_VERSIONED+GET_AS_OF）。
 //  5. 磁盘写满模拟：crashsim 在 RLIMIT_FSIZE=8KB（ulimit -f 16）下写入，
 //     写失败/信号终止 → 重新 Open 一致性同维度 1。
 //  6. 时钟回拨：engine 层 write_ts 递减（as-of 语义仍正确）；网络层 v1 PUT
-//     未纳管数字末段键的设备时间戳回拨被过滤钩子拒绝（non_monotonic_
-//     timestamp）；v2 PUT_VERSIONED 按设计跳过该启发式（同一逻辑键反复写
-//     版本是正常行为，见 ingesthook.ValidateVersioned 文档）；查询回拨
-//     （as-of 过去时刻）不命中已实测。
+//     未纳管数字末段键的 v1 PUT 可乱序写入；v2 PUT_VERSIONED 可反复写
+//     同一逻辑键；查询回拨（as-of 过去时刻）不命中已实测。
 
 import (
 	"bytes"
@@ -124,7 +121,7 @@ func cmdAdversarial(args []string) error {
 	for _, mb := range []int{1, 8} {
 		size := mb << 20
 		payload := bytes.Repeat([]byte("a"), size)
-		key := fmt.Sprintf("blob:test:file-%d", mb) // 末段非数字：避开设备时间戳启发式
+		key := fmt.Sprintf("blob:test:file-%d", mb)
 		t0 := time.Now()
 		seq, err := v2Put(addr, key, payload)
 		if err != nil {
@@ -583,7 +580,7 @@ func runClockRollback(addr string) error {
 	}
 	fmt.Fprintf(os.Stdout, "  [clock] a) engine 层 write_ts 递减 3 次（回拨 1h/2h）全部接受；as-of 语义正确（base-1.5h→v2，base+1s→v1）\n")
 
-	// b) 网络层 v1 PUT：未纳管数字末段键的设备时间戳回拨被过滤钩子拒绝。
+	// b) 网络层 v1 PUT：数字末段的未纳管键不代表设备时间戳。
 	c, err := client.New(client.Options{Addrs: []string{addr}})
 	if err != nil {
 		return err
@@ -592,23 +589,21 @@ func runClockRollback(addr string) error {
 	if err := c.Put(context.Background(), []byte("ts:2026-08-17:00001"), []byte("first")); err != nil {
 		return fmt.Errorf("v1 首写失败: %w", err)
 	}
-	err = c.Put(context.Background(), []byte("ts:2026-08-17:00000"), []byte("rollback")) // 设备时间戳 1→0
-	if err == nil {
-		return fmt.Errorf("设备时间戳回拨未被过滤钩子拒绝（应 drop non_monotonic_timestamp）")
+	if err := c.Put(context.Background(), []byte("ts:2026-08-17:00000"), []byte("rollback")); err != nil {
+		return fmt.Errorf("v1 数字末段乱序写入被拒: %w", err)
 	}
-	fmt.Fprintf(os.Stdout, "  [clock] b) 网络层 v1 PUT 设备时间戳回拨（1→0）被拒绝: %v\n", err)
+	fmt.Fprintln(os.Stdout, "  [clock] b) 网络层 v1 PUT 数字末段乱序写入接受")
 
-	// c) v2 PUT_VERSIONED 按设计跳过回拨启发式：同一逻辑键反复写版本是
-	//    正常行为（ingesthook.ValidateVersioned 文档），ts: 键二次写入接受。
+	// c) v2 PUT_VERSIONED 同一逻辑键反复写版本是正常行为。
 	c2, err := dialV2(addr, negotiate.AckEvery)
 	if err != nil {
 		return err
 	}
 	defer c2.Close()
 	if _, err := c2.putVersioned([]byte("ts:2026-08-17:00001"), []byte("second"), "bench-clock"); err != nil {
-		return fmt.Errorf("v2 版本化路径二次写同一逻辑键被拒（按设计应跳过启发式）: %w", err)
+		return fmt.Errorf("v2 版本化路径二次写同一逻辑键被拒: %w", err)
 	}
-	fmt.Fprintf(os.Stdout, "  [clock] c) v2 PUT_VERSIONED 同键二次写入接受（按设计跳过回拨启发式）\n")
+	fmt.Fprintf(os.Stdout, "  [clock] c) v2 PUT_VERSIONED 同键二次写入接受\n")
 
 	// d) 查询回拨：GET_AS_OF 指定过去时刻——不命中该时刻之后才写入的版本。
 	qq := `{"code":"510300","date":"2026-08-17","open":1,"high":1,"low":1,"close":1,"volume":1}`

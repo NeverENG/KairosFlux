@@ -45,7 +45,7 @@ func startTestKairosFluxServer(t *testing.T) string {
 
 	kv := service.NewKVServer()
 	router := service.NewRouter(kv)
-	filter := ingesthook.NewFilter(nil, 0, false)
+	filter := ingesthook.NewFilter(0)
 	router.SetPreHandle(filter.Handle)
 	routerV2 := service.NewRouterV2(kv, filter, service.DefaultV2WindowSafetyValveN)
 
