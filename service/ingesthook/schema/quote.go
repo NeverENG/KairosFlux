@@ -31,7 +31,7 @@ const maxPctChange = 0.21
 const quoteTypeID uint16 = 1
 
 func init() {
-	// 直接用 RegisterDescriptor 而不是 Register(prefix, validator)：quote 是
+	// 使用 RegisterDescriptor：quote 是
 	// 本仓库唯一在生产路径上真实使用 v2 `type` 字段分派的类型（Kair-2 RFC
 	// §3.2/§9），它的 TypeID 映射从进程启动就该生效，不应该依赖
 	// schema.LoadContracts 有没有被调用——服务端在没有 contracts/ 目录（如
