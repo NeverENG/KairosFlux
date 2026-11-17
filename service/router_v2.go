@@ -239,10 +239,10 @@ func (r *RouterV2) applyWrite(req kairnet.RequestV2) (accepted bool, errCode uin
 		// ValidateForType（M1）：req.Type()==0（未声明类型）与此前的 Validate 完全
 		// 等价，覆盖今天全部生产流量；非零时按声明的 TypeID 精确分派（Kair-2 RFC
 		// §9.3），见 Filter.ValidateForType 的文档。
-		newValue, _, result, code, reason := r.filter.ValidateForType(req.Type(), key, value)
+		result, code, reason := r.filter.ValidateForType(req.Type(), key, value)
 		if result == ingesthook.ResultDrop {
-			// Filter.ValidateForType 内部已经按具体丢弃原因（oversized/非单调/
-			// schema）各自 .Add(1) 过对应的 FramesDroppedXxx 计数器，这里
+			// Filter.ValidateForType 内部已经按具体丢弃原因（oversized/schema）
+			// 各自 .Add(1) 过对应的 FramesDroppedXxx 计数器，这里
 			// 不需要、也不应该重复计数。
 			//
 			// code==0 的丢弃原因（oversized_value/unknown_declared_type）沿用 M1 之前的行为：统一归入
@@ -256,7 +256,6 @@ func (r *RouterV2) applyWrite(req kairnet.RequestV2) (accepted bool, errCode uin
 			}
 			return false, code, reason
 		}
-		value = newValue
 	}
 
 	if err := r.store.Write(Command{Type: CommandPut, Key: key, Value: value}); err != nil {
@@ -472,12 +471,8 @@ func (r *RouterV2) handlePutVersioned(req kairnet.RequestV2) {
 	}
 
 	if r.filter != nil {
-		// ValidateVersionedForType，不是 ValidateVersioned：跳过时间戳单调性
-		// 启发式，见其文档——那条启发式假设"同一 key 被反复写入=时钟异常"，与
-		// PUT_VERSIONED 的正常工作方式（反复对同一逻辑键写新版本）直接冲突，
-		// 冲突在写这段代码时就用真实服务端 smoke test 复现过。req.Type()==0 时
-		// 与此前的 ValidateVersioned 完全等价（M1，见 Filter.ValidateForType）。
-		newValue, _, result, code, reason := r.filter.ValidateVersionedForType(req.Type(), key, value)
+		// 版本化写入与普通 PUT 共用类型和长度校验；重复写同一逻辑键不是异常。
+		result, code, reason := r.filter.ValidateForType(req.Type(), key, value)
 		if result == ingesthook.ResultDrop {
 			if code == 0 {
 				code = codec.ErrCodeSchemaValidation
@@ -485,7 +480,6 @@ func (r *RouterV2) handlePutVersioned(req kairnet.RequestV2) {
 			r.sendErr(req.Conn(), req.Type(), req.CorrID(), code, reason)
 			return
 		}
-		value = newValue
 	}
 
 	seq, err := r.temporal.PutVersioned(string(key), value, time.Now().UnixNano(), source, schemaVersionFor(req.Type(), key))
