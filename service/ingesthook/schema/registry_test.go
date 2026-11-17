@@ -6,51 +6,43 @@ type stubValidator struct{ err error }
 
 func (s stubValidator) Validate(value []byte) error { return s.err }
 
-func TestLookup_NoMatchReturnsFalse(t *testing.T) {
-	if _, ok := Lookup([]byte("unregistered:1")); ok {
-		t.Fatalf("未注册前缀应返回 ok=false")
+func TestLookupDescriptor_NoMatchReturnsFalse(t *testing.T) {
+	if _, ok := LookupDescriptor([]byte("unregistered:1")); ok {
+		t.Fatal("unregistered prefix must not match")
 	}
 }
 
-func TestLookup_MatchesRegisteredPrefix(t *testing.T) {
-	Register("stub:", stubValidator{})
+func TestLookupDescriptor_MatchesRegisteredPrefix(t *testing.T) {
+	RegisterDescriptor(Descriptor{KeyPrefix: "stub:", Validation: stubValidator{}})
 	t.Cleanup(func() { Unregister("stub:") })
 
-	v, ok := Lookup([]byte("stub:abc"))
-	if !ok || v == nil {
-		t.Fatalf("已注册前缀应命中，得到 ok=%v v=%v", ok, v)
+	d, ok := LookupDescriptor([]byte("stub:abc"))
+	if !ok || d.Validation == nil {
+		t.Fatalf("registered prefix not found: ok=%v descriptor=%+v", ok, d)
 	}
 }
 
-func TestLookup_LongestPrefixWins(t *testing.T) {
-	Register("a:", stubValidator{err: nil})
-	Register("a:b:", stubValidator{})
+func TestLookupDescriptor_LongestPrefixWins(t *testing.T) {
+	RegisterDescriptor(Descriptor{KeyPrefix: "a:", Name: "short", Validation: stubValidator{}})
+	RegisterDescriptor(Descriptor{KeyPrefix: "a:b:", Name: "long", Validation: stubValidator{}})
 	t.Cleanup(func() {
 		Unregister("a:")
 		Unregister("a:b:")
 	})
 
-	// 两个前缀都能匹配 "a:b:c"，应选最长的 "a:b:"。
-	// 用不同实例区分：更长前缀的实例地址与 Lookup 返回值比较。
-	longer := stubValidator{}
-	Register("a:b:", longer)
-
-	v, ok := Lookup([]byte("a:b:c"))
-	if !ok {
-		t.Fatal("应命中前缀")
-	}
-	if _, isStub := v.(stubValidator); !isStub {
-		t.Fatalf("类型断言失败: %T", v)
+	d, ok := LookupDescriptor([]byte("a:b:c"))
+	if !ok || d.Name != "long" {
+		t.Fatalf("expected longest prefix, got ok=%v descriptor=%+v", ok, d)
 	}
 }
 
-// quote: 前缀在包 init() 中已自注册，未注册任何 stub 时应能直接命中 QuoteSnapshot。
-func TestLookup_QuotePrefixRegisteredByDefault(t *testing.T) {
-	v, ok := Lookup([]byte("quote:2026-08-17:600000"))
+// quote: registers its descriptor at init, even before loading contracts from disk.
+func TestLookupDescriptor_QuotePrefixRegisteredByDefault(t *testing.T) {
+	d, ok := LookupDescriptor([]byte("quote:2026-08-17:600000"))
 	if !ok {
-		t.Fatal("quote: 前缀应在包加载时自动注册")
+		t.Fatal("quote: prefix must be registered at init")
 	}
-	if _, isQuote := v.(QuoteSnapshot); !isQuote {
-		t.Fatalf("默认注册的校验器类型应为 QuoteSnapshot，得到 %T", v)
+	if _, isQuote := d.Validation.(QuoteSnapshot); !isQuote {
+		t.Fatalf("expected QuoteSnapshot validator, got %T", d.Validation)
 	}
 }
