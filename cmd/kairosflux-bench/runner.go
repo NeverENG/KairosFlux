@@ -284,18 +284,6 @@ func recv(conn *net.TCPConn) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func readFull(conn *net.TCPConn, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := conn.Read(buf[total:])
-		if err != nil {
-			return total, err
-		}
-		total += n
-	}
-	return total, nil
-}
-
 // parseStatus 拆解响应负载 [statusLen u8][status bytes], 返回 status 字符串与剩余字节
 func parseStatus(payload []byte) (string, []byte, error) {
 	if len(payload) < 1 {
