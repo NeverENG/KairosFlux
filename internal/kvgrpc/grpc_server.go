@@ -39,7 +39,7 @@ type GRPCServer struct {
 // NewGRPCServer 构造 gRPC 传输实现——用于基准测试/协议对照，不是生产摄入入口
 // （见包注释）。filter 为 nil 时 Put 跳过清洗直接写入（历史行为，仅供不关心清洗
 // 的测试/基准场景使用）；即便作为对照用途，也应传入非 nil filter 做纵深防御，
-// 避免有人误把这条裸写路径当生产入口用时完全跳过畸形值/单调性/schema 校验，
+// 避免有人误把这条裸写路径当生产入口用时完全跳过值长度/schema 校验，
 // 见 cmd/kairosflux-grpc-server/main.go 的构造处。
 func NewGRPCServer(kv *service.KVServer, filter *ingesthook.Filter) *GRPCServer {
 	return &GRPCServer{kv: kv, filter: filter}
@@ -54,12 +54,9 @@ func (s *GRPCServer) Put(ctx context.Context, req *PutRequest) (*PutResponse, er
 	if s.filter != nil {
 		// gRPC 没有 v2 帧那样的 type 字段，走 Validate 的 key 前缀路径——与
 		// req.Type()==0 时的 ValidateForType 完全等价（M1，见其文档）。
-		newValue, changed, result, _, _ := s.filter.Validate(key, value)
+		result, _, _ := s.filter.Validate(key, value)
 		if result == ingesthook.ResultDrop {
 			return &PutResponse{Success: false}, nil
-		}
-		if changed {
-			value = newValue
 		}
 	}
 	cmd := service.Command{Type: service.CommandPut, Key: key, Value: value}

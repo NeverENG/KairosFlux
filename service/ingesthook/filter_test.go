@@ -53,9 +53,9 @@ func TestHandlePreservesResearchPayloadAndNumericSuffixOrder(t *testing.T) {
 		if !bytes.Equal(req.MsgData(), frame) {
 			t.Fatalf("key=%q: write frame was rewritten", key)
 		}
-		out, changed, result, _, reason := f.Validate([]byte(key), value)
-		if result != ResultPass || changed || reason != "" || !bytes.Equal(out, value) {
-			t.Fatalf("key=%q: payload changed or rejected: %q, %v, %v, %q", key, out, changed, result, reason)
+		result, _, reason := f.Validate([]byte(key), value)
+		if result != ResultPass || reason != "" {
+			t.Fatalf("key=%q: payload rejected: %v, %q", key, result, reason)
 		}
 	}
 }
@@ -65,18 +65,18 @@ func TestVersionedAndDeclaredTypePreserveValidation(t *testing.T) {
 	key := []byte("quote:2026-08-17:600000")
 	valid := []byte(`{"code":"600000","date":"2026-08-17","open":10,"high":10.5,"low":9.8,"close":10.2,"volume":1000000}`)
 	for i := 0; i < 2; i++ {
-		out, changed, result, _, reason := f.ValidateVersioned(key, valid)
-		if result != ResultPass || changed || reason != "" || !bytes.Equal(out, valid) {
-			t.Fatalf("versioned write %d rejected/changed: %v %q", i, result, reason)
+		result, _, reason := f.ValidateForType(0, key, valid)
+		if result != ResultPass || reason != "" {
+			t.Fatalf("versioned write %d rejected: %v %q", i, result, reason)
 		}
 	}
-	if _, _, result, _, _ := f.ValidateForType(4242, key, valid); result != ResultDrop {
+	if result, _, _ := f.ValidateForType(4242, key, valid); result != ResultDrop {
 		t.Fatal("unknown declared type must be rejected")
 	}
-	if _, _, result, _, reason := f.ValidateVersionedForType(0, key, []byte(`{"open":-1}`)); result != ResultDrop || reason == "" {
+	if result, _, reason := f.ValidateForType(0, key, []byte(`{"open":-1}`)); result != ResultDrop || reason == "" {
 		t.Fatalf("invalid quote must be rejected with reason: %v %q", result, reason)
 	}
-	if _, _, result, _, reason := NewFilter(3).ValidateVersioned(key, valid); result != ResultDrop || reason != "oversized_value" {
+	if result, _, reason := NewFilter(3).ValidateForType(0, key, valid); result != ResultDrop || reason != "oversized_value" {
 		t.Fatalf("oversized versioned value must be rejected: %v %q", result, reason)
 	}
 }

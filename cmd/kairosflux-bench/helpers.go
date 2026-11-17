@@ -27,7 +27,7 @@ func genKey(i int) string {
 
 // genPayload 从种子随机源生成一条合法行情 JSON（quote 契约字段）。OHLC 必须
 // 自洽：high ≥ max(open,close)、low ≤ min(open,close)——服务端 filter 的
-// ValidateVersioned 会在网络路径校验这一点，四个值各自独立随机生成的负载
+// ValidateForType 会在网络路径校验这一点，四个值各自独立随机生成的负载
 // 约 91% 违反约束而被整批拒绝（阶段 B 实测踩坑，修复后本工具所有写路径的
 // 负载都通过契约校验；embedded 进程内路径不经 filter，但账本数据同样保持
 // 合法，保证 100w 档账本形状与生产一致）。
