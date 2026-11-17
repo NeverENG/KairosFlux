@@ -326,8 +326,7 @@ const maxScanResults = 10000
 // 条目收集 key/value 拷贝后返回（只回传命中切片）。底层切片归存储层所有，故必须拷贝。
 //
 // limit 为本次最多返回的条目数，<=0 取默认上限 maxScanResults。它必须一路传到扫描里：
-// 按游标分批取数的调用方（下游投递）每批只要几百条，若扫描总是物化到默认上限再由调用方
-// 丢弃其余，每批的代价就是 O(剩余数据量)，总代价随数据量平方增长。
+// 按游标分批取数时，limit 必须下传；否则每次都物化到默认上限，造成多余扫描。
 func (k *KVServer) Scan(start, end []byte, pred predicate.Predicate, limit int) []proto.ScanEntry {
 	if limit <= 0 || limit > maxScanResults {
 		limit = maxScanResults

@@ -141,8 +141,7 @@ func (m *Engine) Get(key []byte) ([]byte, error) {
 // ScanRange 在 [start,end] 闭区间升序遍历最新可见键值，跳过墓碑，对每条命中调用 fn；
 // fn 返回 false 可提前停止。start/end 为空分别表示下界/上界不限。
 //
-// 覆盖 active + dirty + 全部 SSTable。此前它只遍历两张内存表，已 flush 的数据对扫描完全
-// 不可见——SCAN 命令因此只返回热数据，而按游标取数的下游投递会跳过所有已落盘的记录。
+// 覆盖 active + dirty + 全部 SSTable；flush 后的数据也必须对 SCAN 可见。
 //
 // 实现为多路归并：内存表在锁内按范围拷出快照，SSTable 以文件迭代器参与，源序按新旧排列
 // （SSTable 由旧到新，其后 dirty，最后 active），故同一 key 只保留最新版本；最新版本是
@@ -165,8 +164,7 @@ func (m *Engine) ScanRange(start, end []byte, fn func(key, value []byte) bool) {
 	sources := make([]entryIterator, 0, len(metas)+2)
 	for _, meta := range metas {
 		// 先按 [MinKey,MaxKey] 排除与扫描区间无交集的文件，避免为它白开一个迭代器。
-		// 这对按游标推进的扫描是决定性的：游标越往后，落在其之前的文件越多，若每次都逐个
-		// 打开，投递吞吐会随文件数线性劣化（实测 113 个文件时投递几乎爬不动）。
+		// 对按游标推进的扫描，跳过游标之前的文件，避免文件打开数量随数据规模增长。
 		if meta.MaxKeyKnown && len(start) > 0 && bytes.Compare(meta.MaxKey, start) < 0 {
 			continue // 整份都在下界之前
 		}

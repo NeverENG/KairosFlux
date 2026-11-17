@@ -15,7 +15,7 @@
 //   - Serve：server 模式。DataDir 不存在会创建，构造即绑定监听（Port 必填），
 //     Addr() 返回监听地址，Close() 优雅关停。server 模式的网络壳与生产装配
 //     Node（service/node.go）是同一个核心接线（v1 Router + v2 RouterV2 +
-//     采集过滤钩子），差别是 Node 额外挂分片路由/网关准入/下游投递/周期指标
+//     采集过滤钩子），差别是 Node 额外挂分片路由/网关准入/周期指标
 //     这些按配置门控的生产子系统（Engine 的 server 模式不挂，接口面以"真的
 //     会换实现"为准，不造插件注册表）。
 //
@@ -169,7 +169,7 @@ func Open(opts Options) (*Engine, error) {
 // 即已绑定监听（kairnet.Server.Start 同步绑定，绑定失败以 error 返回），
 // Addr() 可读，调用方后续只需 Close() 优雅关停。网络壳与 Node 共用同一套
 // 核心接线（v1 Router + v2 RouterV2 + 采集过滤钩子），Node 的分片路由/准入/
-// 投递/指标等按配置门控的生产子系统不挂载（见本文件顶部文档）。
+// 指标等按配置门控的生产子系统不挂载（见本文件顶部文档）。
 func Serve(opts Options) (*Engine, error) {
 	if opts.Port <= 0 {
 		return nil, errors.New("kairosflux: Serve 要求 Options.Port > 0（server 模式）")

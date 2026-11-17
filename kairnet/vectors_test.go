@@ -123,9 +123,8 @@ func TestVectors_FrameHeadLenIsSixBytes(t *testing.T) {
 }
 
 // TestVectors_QuoteKeyLayoutIsDateFirst 冒烟校验行情快照向量的 key 布局约定
-// （quote:<日期>:<代码>，日期在前）在向量文件里没有被写反——这个布局决定了
-// 投递/retention 机制是否需要改动，见 docs/Kair-协议规范.md 与 service/
-// ingesthook/schema/quote.go 的注释。
+// （quote:<日期>:<代码>，日期在前）在向量文件里没有被写反；
+// 日期优先使同一天的行情键在扫描范围内连续。
 func TestVectors_QuoteKeyLayoutIsDateFirst(t *testing.T) {
 	for _, v := range loadVectors(t) {
 		if v.Name != "put_request_quote" {
