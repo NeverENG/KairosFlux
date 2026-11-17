@@ -8,8 +8,7 @@ import (
 )
 
 // quotePrefix 是行情快照记录的 key 前缀约定：quote:<YYYY-MM-DD>:<代码>。
-// 日期在前是刻意选择——同一天的全市场快照在 key 空间连续，投递按位点批量拉取、
-// retention 按已投递位点回收都天然按「日」成批，不需要为行情数据改投递/回收逻辑。
+// 日期在前使同一天的全市场快照在 key 空间连续，便于按日期范围扫描。
 const quotePrefix = "quote:"
 
 // maxPctChange 是涨跌幅的物理极限（非交易规则的涨跌停线，是数据合理性上限）：

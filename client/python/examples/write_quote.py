@@ -4,8 +4,7 @@
 演示 QuantScout 这类 Python 上游如何直接写 Kair 协议（kairnet TLV），不经 gRPC、
 不装 protobuf 工具链。key 布局用裁决过的 quote:<日期>:<代码>（日期在前），
 理由见 docs/Kair-协议规范.md 与 service/ingesthook/schema/quote.go 的注释：
-同一天的全市场快照在 key 空间连续，投递/retention 按「日」成批时不需要改动
-现有机制。
+同一天的全市场快照在 key 空间连续，便于按日期范围扫描。
 
 用法：
     python3 write_quote.py --addr 127.0.0.1:8080 \\

@@ -66,12 +66,7 @@ func TestKVServer_Scan(t *testing.T) {
 	}
 }
 
-// TestScanCoversFlushedData 守护 SCAN 与下游投递的取数范围：已落盘的数据必须仍在扫描
-// 结果中。
-//
-// 这条契约此前不成立：存储层的扫描只遍历两张内存表。后果不止 SCAN 命令少返回结果——
-// 下游投递（delivery.KVSource）正是按游标反复调用本方法取数，一旦 flush 快于投递
-// （阈值上万条 vs 每秒百条，必然如此），落盘的记录就再也不会被投递，即静默漏投。
+// TestScanCoversFlushedData 守护 SCAN 的取数范围：已落盘的数据仍须可见。
 func TestScanCoversFlushedData(t *testing.T) {
 	dir := t.TempDir()
 	oldWAL, oldSST, oldMax := config.G.WALPath, config.G.SSTablePath, config.G.MaxMemTableSize

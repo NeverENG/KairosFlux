@@ -63,8 +63,7 @@ func (r *readAtReader) Read(p []byte) (int, error) {
 // newSSTableIteratorFrom 取得共享句柄引用并借块索引直接跳到可能含 start 的那一块，
 // 避免从文件头顺序跳过。
 //
-// 这对按游标推进的扫描是决定性的：投递每取一批就以新游标再扫一次，若每次都从头顺序跳到
-// 游标处，总代价随数据量平方增长。二分块索引后每次只从目标块开始读。
+// 按游标分页扫描时，二分块索引可避免每次都从文件头顺序跳到游标处。
 //
 // 无块索引（老格式或尾部残缺）时退回从头读，由调用方的范围裁剪保证正确性。
 func newSSTableIteratorFrom(ss *SSTable, path string, start []byte) (*sstableIterator, error) {

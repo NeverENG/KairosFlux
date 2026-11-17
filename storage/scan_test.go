@@ -96,10 +96,7 @@ func TestScanRange_ActiveOverridesDirty(t *testing.T) {
 // TestScanRange_CoversFlushedData 守护扫描的覆盖范围：已 flush 到 SSTable 的数据必须
 // 仍在扫描结果中。
 //
-// 这条契约此前不成立：ScanRange 只遍历 active 与 dirty 两张内存表，一旦 flush 发生，
-// 那批数据对扫描完全不可见。后果不止 SCAN 命令少返回结果——下游投递按游标调用 Scan 取数，
-// 会直接跳过所有已落盘的记录，即静默漏投。而 Get 能读到同样的数据，两条读路径的可见范围
-// 不一致，问题因此更难察觉。
+// flush 后仍要通过 SCAN 读到与 Get 一致的数据。
 func TestScanRange_CoversFlushedData(t *testing.T) {
 	// 极小阈值：写入过程中必然多次 flush。
 	e := NewEngine(Options{Dir: t.TempDir(), MaxMemTableSize: 5})
