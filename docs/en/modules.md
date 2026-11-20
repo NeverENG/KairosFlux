@@ -44,7 +44,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 
 | Module | Reading entry point |
 | --- | --- |
-| [service/](../../service/) | `Node`, KV service, v1/v2 routers, and temporal-store assembly; distinguish ordinary PUT from versioned operations. |
+| [service/](../../service/) | `Node`, KV service, v1/v2 routers, temporal-store and task-store assembly; distinguish ordinary PUT from versioned operations. |
 | [service/ingesthook/](../../service/ingesthook/) | Pre-write frame, value-size and schema validation; no device-specific redaction or timestamp heuristic. This hook is **not** an agent tool registry. |
 | [service/ingesthook/schema/](../../service/ingesthook/schema/) | Loading registered data contracts and validating quotes. |
 | [storage/](../../storage/) | LSM/SSTable, range scans, compaction, and MemTable; standalone WAL wiring is in `service/`. |
@@ -53,6 +53,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [internal/metrics/](../../internal/metrics/) | Server/storage counters and runtime metrics. |
 | [internal/identity/](../../internal/identity/) | Shared agent-source role and Proposal key-prefix checks. |
 | [internal/aiplane/](../../internal/aiplane/) | Go-side Context, Proposal, similarity, and evidence graph; not pre-built Python tools. |
+| [internal/taskplane/](../../internal/taskplane/) | Pure task state machine (claim/checkpoint/complete/fail, lease expiry as a read-time check); IO shell is `service/task_store.go`. |
 
 ## Optional and pending removal
 

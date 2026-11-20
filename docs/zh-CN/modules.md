@@ -44,7 +44,7 @@
 
 | 模块 | 阅读入口 |
 | --- | --- |
-| [service/](../../service/) | `Node`、KV 服务、v1/v2 路由和时态存储的装配；区分普通 PUT 与版本化操作。 |
+| [service/](../../service/) | `Node`、KV 服务、v1/v2 路由、时态存储与任务存储的装配；区分普通 PUT 与版本化操作。 |
 | [service/ingesthook/](../../service/ingesthook/) | 写入前帧、值长度和 schema 校验入口；不执行设备字段脱敏或时间戳启发式。这里的 hook **不是** Agent 工具注册。 |
 | [service/ingesthook/schema/](../../service/ingesthook/schema/) | 已注册类型的数据契约加载与行情校验。 |
 | [storage/](../../storage/) | MemTable、WAL 之外的 LSM/SSTable、范围扫描、压缩；单机 WAL 的装配在 `service/`。 |
@@ -53,6 +53,7 @@
 | [internal/metrics/](../../internal/metrics/) | 服务和存储的计数器/运行指标。 |
 | [internal/identity/](../../internal/identity/) | Agent 来源角色及 Proposal 键前缀的共享判定。 |
 | [internal/aiplane/](../../internal/aiplane/) | Context、Proposal、相似度与证据图谱的 Go 侧实现；不要理解成现成 Python 工具。 |
+| [internal/taskplane/](../../internal/taskplane/) | 纯任务状态机（claim/checkpoint/complete/fail，租约过期是读时判定）；IO 壳在 `service/task_store.go`。 |
 
 ## 可选与待移除部分
 

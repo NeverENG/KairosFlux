@@ -38,6 +38,7 @@ QuantBrew (Rust) ────┘                                       │
 | Data entry | Kair v1 basic KV/SCAN and v2 versioned reads/writes and audit |
 | Contracts | Server startup loads `contracts/*.schema.json` for registered type validation; the embedded Go `Engine` does not load them automatically |
 | AI data plane | Existing Go embedded `BuildContext`/`SubmitProposal` and proposal/evidence logic; not a complete network-facing agent toolset |
+| Task plane | Versioned task state with lease claim, checkpoint/resume, and structured errors; the executor stays outside the database (`TASK_*` opcodes, Go `Engine`, Python client) |
 
 **Important limits:** the daily quote example uses ordinary PUT at `quote:<date>:<symbol>`; one symbol's N-day quotes are not contiguous in this key order. Business `SCAN` returns at most 10,000 entries and does not gather across shards. A symbol-first layout, complete series API, and offline conversion of old data remain to be designed and verified—not shipped features. See [architecture and status](docs/en/architecture.md).
 
