@@ -189,6 +189,39 @@ func TestRenewAfterExpiryIsStale(t *testing.T) {
 	}
 }
 
+func TestCheckpointPersistsAndIsIdempotent(t *testing.T) {
+	cur := Status{Name: "research", Phase: PhaseRunning, Token: "tok-1", Attempt: 1, LeaseUntilNanos: t0 + ttl}
+	next, changed, err := Checkpoint(cur, t0, "tok-1", []byte(`{"cursor":7}`), []string{"evidence:1"})
+	if err != nil || !changed {
+		t.Fatalf("checkpoint should persist: changed=%v err=%v", changed, err)
+	}
+	if string(next.Checkpoint) != `{"cursor":7}` || len(next.Refs) != 1 {
+		t.Fatalf("checkpoint/refs not stored: %+v", next)
+	}
+	_, changed, err = Checkpoint(next, t0, "tok-1", []byte(`{"cursor":7}`), []string{"evidence:1"})
+	if err != nil || changed {
+		t.Fatalf("identical checkpoint must be no-op: changed=%v err=%v", changed, err)
+	}
+}
+
+func TestCheckpointAfterExpiryIsStale(t *testing.T) {
+	cur := Status{Name: "research", Phase: PhaseRunning, Token: "tok-1", LeaseUntilNanos: t0}
+	_, _, err := Checkpoint(cur, t0+1, "tok-1", []byte("cp"), nil)
+	var te *Error
+	if !errors.As(err, &te) || te.Code != CodeStaleAttempt {
+		t.Fatalf("want stale_attempt, got %v", err)
+	}
+}
+
+func TestCheckpointRejectsNonOwner(t *testing.T) {
+	cur := Status{Name: "research", Phase: PhaseRunning, Token: "tok-1", LeaseUntilNanos: t0 + ttl}
+	_, _, err := Checkpoint(cur, t0, "tok-2", []byte("cp"), nil)
+	var te *Error
+	if !errors.As(err, &te) || te.Code != CodeStaleAttempt {
+		t.Fatalf("want stale_attempt, got %v", err)
+	}
+}
+
 func TestClaimRejectsEmptyWorkerAndTTL(t *testing.T) {
 	for _, tc := range []struct {
 		worker string

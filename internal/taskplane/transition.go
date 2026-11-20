@@ -1,6 +1,9 @@
 package taskplane
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // Claim 尝试取得任务的一次执行租约。
 //
@@ -117,6 +120,41 @@ func Fail(cur Status, spec *Spec, now int64, token, reason string, retryable boo
 		next.NextDueNanos = now
 	}
 	return next, true, nil
+}
+
+// Checkpoint 在 running 期间保存断点与引用，供下一次 attempt 续跑。
+// 只有当前 token 的持有者、且租约未过期时才能写；内容未变化时返回
+// changed=false，不产生新版本（幂等心跳）。
+func Checkpoint(cur Status, now int64, token string, checkpoint []byte, refs []string) (Status, bool, error) {
+	cur, err := normalize(cur, nil)
+	if err != nil {
+		return cur, false, err
+	}
+	if token == "" || cur.Phase != PhaseRunning || cur.Token != token {
+		return cur, false, &Error{Code: CodeStaleAttempt, Owner: cur.Owner, Message: "token does not own the task"}
+	}
+	if cur.LeaseUntilNanos <= now {
+		return cur, false, &Error{Code: CodeStaleAttempt, Owner: cur.Owner, Message: fmt.Sprintf("lease expired at %d", cur.LeaseUntilNanos)}
+	}
+	if bytes.Equal(cur.Checkpoint, checkpoint) && equalStrings(cur.Refs, refs) {
+		return cur, false, nil
+	}
+	next := cur
+	next.Checkpoint = checkpoint
+	next.Refs = refs
+	return next, true, nil
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // Renew 延长 running attempt 的租约。租约已过期或 token 不匹配返回
