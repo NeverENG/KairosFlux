@@ -7,6 +7,7 @@ package kairosflux_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -308,5 +309,71 @@ func TestEngineProposalAndContext(t *testing.T) {
 	}
 	if b1.ContractsDigest == "" || b1.RiskRedlinesDigest == "" {
 		t.Fatal("契约/红线摘要不应为空")
+	}
+}
+
+// TestEngineTaskLifecycle 覆盖 embedded 模式的 task plane 全链路：
+// 规格 → claim → checkpoint → 并发拒绝 → complete → 到点再 claim。
+func TestEngineTaskLifecycle(t *testing.T) {
+	e, err := kairosflux.NewEmbedded(kairosflux.Options{DataDir: mustDataDir(t)})
+	if err != nil {
+		t.Fatalf("NewEmbedded: %v", err)
+	}
+	defer e.Close()
+
+	spec := kairosflux.TaskSpec{Name: "research:daily", Kind: "research", CadenceNanos: int64(24 * time.Hour)}
+	if _, err := e.DefineTask(spec); err != nil {
+		t.Fatalf("DefineTask: %v", err)
+	}
+
+	st, err := e.ClaimTask("research:daily", "worker-a", time.Minute)
+	if err != nil {
+		t.Fatalf("ClaimTask: %v", err)
+	}
+	if st.Phase != kairosflux.TaskPhaseRunning || st.Token == "" || st.Attempt != 1 {
+		t.Fatalf("unexpected claim: %+v", st)
+	}
+
+	cp, err := e.CheckpointTask("research:daily", st.Token, []byte(`{"cursor":42}`), []string{"proposal:abc"})
+	if err != nil {
+		t.Fatalf("CheckpointTask: %v", err)
+	}
+	if string(cp.Checkpoint) != `{"cursor":42}` || len(cp.Refs) != 1 {
+		t.Fatalf("checkpoint not stored: %+v", cp)
+	}
+
+	if _, err := e.ClaimTask("research:daily", "worker-b", time.Minute); err == nil {
+		t.Fatal("second claim while leased must fail")
+	} else {
+		var te *kairosflux.TaskError
+		if !errors.As(err, &te) || te.Code != "leased" {
+			t.Fatalf("want leased error, got %v", err)
+		}
+	}
+
+	done, err := e.CompleteTask("research:daily", st.Token, kairosflux.TaskCompletion{
+		Checkpoint: []byte(`{"done":true}`),
+		Refs:       []string{"proposal:abc"},
+		Outcome:    []byte(`{"ok":true}`),
+	})
+	if err != nil {
+		t.Fatalf("CompleteTask: %v", err)
+	}
+	if done.Phase != kairosflux.TaskPhaseSucceeded || done.NextDueNanos == 0 {
+		t.Fatalf("unexpected completion: %+v", done)
+	}
+
+	if _, err := e.ClaimTask("research:daily", "worker-b", time.Minute); err == nil {
+		t.Fatal("claim before next_due must fail")
+	} else {
+		var te *kairosflux.TaskError
+		if !errors.As(err, &te) || te.Code != "not_due" {
+			t.Fatalf("want not_due, got %v", err)
+		}
+	}
+
+	got, found, err := e.GetTask("research:daily")
+	if err != nil || !found || got.Phase != kairosflux.TaskPhaseSucceeded {
+		t.Fatalf("GetTask: %+v found=%v err=%v", got, found, err)
 	}
 }

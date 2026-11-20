@@ -28,6 +28,7 @@ import (
 	"github.com/ChronoBrew/KairosFlux/client"
 	"github.com/ChronoBrew/KairosFlux/config"
 	"github.com/ChronoBrew/KairosFlux/internal/metrics"
+	"github.com/ChronoBrew/KairosFlux/internal/taskplane"
 	"github.com/ChronoBrew/KairosFlux/kairnet"
 	"github.com/ChronoBrew/KairosFlux/kairnet/codec"
 	"github.com/ChronoBrew/KairosFlux/kairnet/negotiate"
@@ -591,4 +592,64 @@ func readV2Frame(conn net.Conn) (*codec.MessageV2, error) {
 		return nil, err
 	}
 	return codec.NewDataPackV2().Decode(conn, 0, nil)
+}
+
+// TestRouterV2_TaskClaimLifecycle 覆盖 TASK_* 线上语义：写规格 → claim →
+// 并发 claim 被结构化拒绝 → checkpoint → complete → 状态与 next_due 落账。
+func TestRouterV2_TaskClaimLifecycle(t *testing.T) {
+	addr := startRouterV2TestServer(t, DefaultV2WindowSafetyValveN)
+	c := dialV2(t, addr, negotiate.AckEvery)
+	defer c.close()
+
+	specKey := taskplane.SpecKey("research:daily")
+	c.send(codec.OpcodePutVersioned, codec.TypeUnspecified, 1,
+		proto.EncodePutVersionedFrame([]byte(specKey), []byte(`{"name":"research:daily","cadence_nanos":86400000000000}`), "engine"))
+	if msg := c.recv(); msg.Header.Opcode != codec.OpcodeOK {
+		t.Fatalf("写规格失败: opcode=%#x payload=% x", msg.Header.Opcode, msg.Payload)
+	}
+
+	c.send(codec.OpcodeTaskClaim, codec.TypeUnspecified, 2,
+		proto.EncodeTaskClaimRequest(proto.TaskClaimRequest{Name: "research:daily", Worker: "worker-a", TTLSeconds: 60}))
+	msg := c.recv()
+	if msg.Header.Opcode != codec.OpcodeOK {
+		t.Fatalf("claim 失败: opcode=%#x payload=% x", msg.Header.Opcode, msg.Payload)
+	}
+	st, ok := proto.DecodeTaskStatus(msg.Payload)
+	if !ok || st.Phase != taskplane.PhaseRunning || st.Token == "" || st.Owner != "worker-a" {
+		t.Fatalf("unexpected claim status: %+v ok=%v", st, ok)
+	}
+
+	c.send(codec.OpcodeTaskClaim, codec.TypeUnspecified, 3,
+		proto.EncodeTaskClaimRequest(proto.TaskClaimRequest{Name: "research:daily", Worker: "worker-b", TTLSeconds: 60}))
+	msg = c.recv()
+	if msg.Header.Opcode != codec.OpcodeErr {
+		t.Fatalf("并发 claim 应被拒绝: opcode=%#x", msg.Header.Opcode)
+	}
+	code, reason, ok := proto.DecodeV2ErrPayload(msg.Payload)
+	if !ok || code != codec.ErrCodeTaskLeased || reason != string(taskplane.CodeLeased) {
+		t.Fatalf("want leased(%#x), got %#x %q ok=%v", codec.ErrCodeTaskLeased, code, reason, ok)
+	}
+
+	c.send(codec.OpcodeTaskCheckpoint, codec.TypeUnspecified, 4,
+		proto.EncodeTaskCheckpointRequest(proto.TaskCheckpointRequest{
+			Name: "research:daily", Token: st.Token, Checkpoint: []byte(`{"cursor":7}`), Refs: []string{"proposal:abc"},
+		}))
+	msg = c.recv()
+	st, ok = proto.DecodeTaskStatus(msg.Payload)
+	if msg.Header.Opcode != codec.OpcodeOK || !ok || string(st.Checkpoint) != `{"cursor":7}` {
+		t.Fatalf("checkpoint 失败: opcode=%#x status=%+v ok=%v", msg.Header.Opcode, st, ok)
+	}
+
+	c.send(codec.OpcodeTaskComplete, codec.TypeUnspecified, 5,
+		proto.EncodeTaskCompleteRequest(proto.TaskCompleteRequest{
+			Name: "research:daily", Token: st.Token, Outcome: []byte(`{"ok":true}`),
+		}))
+	msg = c.recv()
+	st, ok = proto.DecodeTaskStatus(msg.Payload)
+	if msg.Header.Opcode != codec.OpcodeOK || !ok || st.Phase != taskplane.PhaseSucceeded {
+		t.Fatalf("complete 失败: opcode=%#x status=%+v ok=%v", msg.Header.Opcode, st, ok)
+	}
+	if st.NextDueNanos == 0 {
+		t.Fatalf("cadence 未生效，next_due=0: %+v", st)
+	}
 }

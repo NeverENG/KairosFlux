@@ -9,6 +9,7 @@ import (
 	"github.com/ChronoBrew/KairosFlux/config"
 	"github.com/ChronoBrew/KairosFlux/internal/identity"
 	"github.com/ChronoBrew/KairosFlux/internal/metrics"
+	"github.com/ChronoBrew/KairosFlux/internal/taskplane"
 	"github.com/ChronoBrew/KairosFlux/kairnet"
 	"github.com/ChronoBrew/KairosFlux/kairnet/codec"
 	"github.com/ChronoBrew/KairosFlux/kairnet/negotiate"
@@ -39,6 +40,9 @@ type RouterV2 struct {
 	// REPLAY_FINGERPRINT）的业务实现，构造时基于同一个 store 建立——版本化
 	// 数据与 v1/v2 的普通 PUT/GET 数据共享同一份存储，不是另开一份。
 	temporal *TemporalStore
+	// task 是 task plane 的 IO 壳（claim/checkpoint/complete/fail），与时态
+	// 内核共用同一份存储与按逻辑键的锁，不另开写入路径。
+	task *TaskStore
 	// filter 可为 nil：不做 schema 校验，PUT 只要帧本身能解出 key/value
 	// 就一律 accepted（与 v1 在没有配置 ingesthook.Filter 时的行为对称）。
 	filter *ingesthook.Filter
@@ -70,9 +74,11 @@ func NewRouterV2(store TemporalRawStore, filter *ingesthook.Filter, windowSafety
 	if windowSafetyValveN == 0 {
 		windowSafetyValveN = DefaultV2WindowSafetyValveN
 	}
+	ts := NewTemporalStore(store)
 	return &RouterV2{
 		store:              store,
-		temporal:           NewTemporalStore(store),
+		temporal:           ts,
+		task:               NewTaskStore(ts),
 		filter:             filter,
 		windowSafetyValveN: windowSafetyValveN,
 	}
@@ -148,6 +154,16 @@ func (r *RouterV2) HandleV2(req kairnet.RequestV2) {
 		r.handleReplayFingerprint(req)
 	case codec.OpcodeListWrites:
 		r.handleListWrites(req)
+	case codec.OpcodeTaskClaim:
+		r.handleTaskClaim(req)
+	case codec.OpcodeTaskCheckpoint:
+		r.handleTaskCheckpoint(req)
+	case codec.OpcodeTaskRenew:
+		r.handleTaskRenew(req)
+	case codec.OpcodeTaskComplete:
+		r.handleTaskComplete(req)
+	case codec.OpcodeTaskFail:
+		r.handleTaskFail(req)
 	default:
 		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeNone, "unknown opcode")
 	}
@@ -689,6 +705,107 @@ func encodeListWritesBodyV2(result ListWritesResult, nextCursor []byte) []byte {
 		sourceCounts[i] = sc.Count
 	}
 	return proto.EncodeListWritesResponseV2(entries, sourceNames, sourceCounts, nextCursor)
+}
+
+// handleTaskClaim 处理 TASK_CLAIM：worker 取得一次执行租约。
+func (r *RouterV2) handleTaskClaim(req kairnet.RequestV2) {
+	in, ok := proto.DecodeTaskClaimRequest(req.Data())
+	if !ok {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeMalformedFrame, "malformed_frame")
+		return
+	}
+	st, err := r.task.Claim(in.Name, in.Worker, time.Duration(in.TTLSeconds)*time.Second)
+	if err != nil {
+		r.sendTaskErr(req, err)
+		return
+	}
+	r.sendOK(req.Conn(), req.Type(), req.CorrID(), proto.EncodeTaskStatus(st))
+}
+
+// handleTaskCheckpoint 处理 TASK_CHECKPOINT：保存当前 attempt 的断点与引用。
+func (r *RouterV2) handleTaskCheckpoint(req kairnet.RequestV2) {
+	in, ok := proto.DecodeTaskCheckpointRequest(req.Data())
+	if !ok {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeMalformedFrame, "malformed_frame")
+		return
+	}
+	st, err := r.task.Checkpoint(in.Name, in.Token, in.Checkpoint, in.Refs)
+	if err != nil {
+		r.sendTaskErr(req, err)
+		return
+	}
+	r.sendOK(req.Conn(), req.Type(), req.CorrID(), proto.EncodeTaskStatus(st))
+}
+
+// handleTaskRenew 处理 TASK_RENEW：延长当前 attempt 的租约。
+func (r *RouterV2) handleTaskRenew(req kairnet.RequestV2) {
+	in, ok := proto.DecodeTaskRenewRequest(req.Data())
+	if !ok {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeMalformedFrame, "malformed_frame")
+		return
+	}
+	st, err := r.task.Renew(in.Name, in.Token, time.Duration(in.TTLSeconds)*time.Second)
+	if err != nil {
+		r.sendTaskErr(req, err)
+		return
+	}
+	r.sendOK(req.Conn(), req.Type(), req.CorrID(), proto.EncodeTaskStatus(st))
+}
+
+// handleTaskComplete 处理 TASK_COMPLETE：提交成功结果并按 cadence 排下一次。
+func (r *RouterV2) handleTaskComplete(req kairnet.RequestV2) {
+	in, ok := proto.DecodeTaskCompleteRequest(req.Data())
+	if !ok {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeMalformedFrame, "malformed_frame")
+		return
+	}
+	st, err := r.task.Complete(in.Name, in.Token, taskplane.Completion{
+		Checkpoint: in.Checkpoint,
+		Refs:       in.Refs,
+		Outcome:    in.Outcome,
+	})
+	if err != nil {
+		r.sendTaskErr(req, err)
+		return
+	}
+	r.sendOK(req.Conn(), req.Type(), req.CorrID(), proto.EncodeTaskStatus(st))
+}
+
+// handleTaskFail 处理 TASK_FAIL：提交失败；retryable 时回到 idle 等待重试。
+func (r *RouterV2) handleTaskFail(req kairnet.RequestV2) {
+	in, ok := proto.DecodeTaskFailRequest(req.Data())
+	if !ok {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeMalformedFrame, "malformed_frame")
+		return
+	}
+	st, err := r.task.Fail(in.Name, in.Token, in.Reason, in.Retryable)
+	if err != nil {
+		r.sendTaskErr(req, err)
+		return
+	}
+	r.sendOK(req.Conn(), req.Type(), req.CorrID(), proto.EncodeTaskStatus(st))
+}
+
+// sendTaskErr 把 taskplane 的结构化错误映射到 0x5xxx 错误码；非任务错误
+// 走通用 error（不把未知失败伪装成任务状态冲突）。
+func (r *RouterV2) sendTaskErr(req kairnet.RequestV2, err error) {
+	var te *taskplane.Error
+	if !errors.As(err, &te) {
+		r.sendErr(req.Conn(), req.Type(), req.CorrID(), codec.ErrCodeNone, "error")
+		return
+	}
+	code := codec.ErrCodeTaskInvalid
+	switch te.Code {
+	case taskplane.CodeLeased:
+		code = codec.ErrCodeTaskLeased
+	case taskplane.CodeNotDue:
+		code = codec.ErrCodeTaskNotDue
+	case taskplane.CodeStaleAttempt:
+		code = codec.ErrCodeTaskStaleAttempt
+	case taskplane.CodeAbandoned:
+		code = codec.ErrCodeTaskAbandoned
+	}
+	r.sendErr(req.Conn(), req.Type(), req.CorrID(), code, string(te.Code))
 }
 
 func (r *RouterV2) sendOK(conn kairnet.Conn, typ uint16, corrID uint32, payload []byte) {

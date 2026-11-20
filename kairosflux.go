@@ -56,6 +56,7 @@ import (
 
 	"github.com/ChronoBrew/KairosFlux/config"
 	"github.com/ChronoBrew/KairosFlux/internal/aiplane"
+	"github.com/ChronoBrew/KairosFlux/internal/taskplane"
 	"github.com/ChronoBrew/KairosFlux/internal/temporal"
 	"github.com/ChronoBrew/KairosFlux/kairnet"
 	"github.com/ChronoBrew/KairosFlux/proto"
@@ -94,6 +95,7 @@ type Engine struct {
 	cfg      *config.GlobalConfig
 	kv       *service.KVServer
 	temporal *service.TemporalStore
+	task     *service.TaskStore
 	server   *kairnet.Server // server 模式非 nil；embedded 模式 nil
 	rw       engineReadWriter
 	// guardrailCancel 是内存护栏采样循环的取消函数（仅 server 模式且
@@ -138,6 +140,25 @@ type (
 	// ListWritesResult 是 LIST_WRITES 的结果（Entries + BySource 聚合，
 	// 见 service.ListWritesResult）。
 	ListWritesResult = service.ListWritesResult
+
+	// TaskSpec / TaskStatus / TaskPhase / TaskCompletion / TaskError 是
+	// task plane 的规格、状态、阶段、完成输入与结构化错误（见
+	// internal/taskplane）。任务状态本身是版本化记录，history 即事件日志。
+	TaskSpec       = taskplane.Spec
+	TaskStatus     = taskplane.Status
+	TaskPhase      = taskplane.Phase
+	TaskCompletion = taskplane.Completion
+	TaskError      = taskplane.Error
+)
+
+// TaskPhase 常量（值即 taskplane 的枚举值，跨仓调用方不需要 import
+// internal 包即可引用）。
+const (
+	TaskPhaseIdle      = taskplane.PhaseIdle
+	TaskPhaseRunning   = taskplane.PhaseRunning
+	TaskPhaseSucceeded = taskplane.PhaseSucceeded
+	TaskPhaseFailed    = taskplane.PhaseFailed
+	TaskPhaseAbandoned = taskplane.PhaseAbandoned
 )
 
 // ProposalKind 常量（值即 aiplane 的枚举值，跨仓调用方不需要 import
@@ -221,6 +242,7 @@ func newEngine(opts Options, requireDir bool) (*Engine, error) {
 		cfg:      cfg,
 		kv:       kv,
 		temporal: t,
+		task:     service.NewTaskStore(t),
 		rw:       engineReadWriter{t: t},
 	}
 
@@ -334,6 +356,44 @@ func (e *Engine) SubmitProposal(p Proposal) (fingerprint string, seq uint64, err
 // riskredlines/redlines.json（委托 internal/aiplane.BuildContext）。
 func (e *Engine) BuildContext(req ContextRequest, contractsDir, redlinesPath string) (ContextBundle, error) {
 	return aiplane.BuildContext(e.rw, req, contractsDir, redlinesPath)
+}
+
+// DefineTask 写入或更新任务规格（版本化记录，历史可审计）。cadence_nanos
+// <=0 表示不定期任务；max_attempts=0 表示不限重试。
+func (e *Engine) DefineTask(spec TaskSpec) (uint64, error) {
+	return e.task.DefineSpec(spec)
+}
+
+// ClaimTask 为 worker 取得一次执行租约。失败以 *TaskError 返回，按
+// Code（leased/not_due/stale_attempt/abandoned/invalid）分支，不解析文本。
+func (e *Engine) ClaimTask(name, worker string, ttl time.Duration) (TaskStatus, error) {
+	return e.task.Claim(name, worker, ttl)
+}
+
+// CheckpointTask 保存当前 attempt 的断点与引用，供崩溃后下一次 attempt
+// 续跑（断点跨 attempt 保留）。
+func (e *Engine) CheckpointTask(name, token string, checkpoint []byte, refs []string) (TaskStatus, error) {
+	return e.task.Checkpoint(name, token, checkpoint, refs)
+}
+
+// RenewTask 延长当前 attempt 的租约；已过期返回 stale_attempt。
+func (e *Engine) RenewTask(name, token string, ttl time.Duration) (TaskStatus, error) {
+	return e.task.Renew(name, token, ttl)
+}
+
+// CompleteTask 提交成功结果；按规格 cadence 计算下一次到期时间。
+func (e *Engine) CompleteTask(name, token string, done TaskCompletion) (TaskStatus, error) {
+	return e.task.Complete(name, token, done)
+}
+
+// FailTask 提交失败；retryable 且未达重试上限时回到 idle 等待下一次 claim。
+func (e *Engine) FailTask(name, token, reason string, retryable bool) (TaskStatus, error) {
+	return e.task.Fail(name, token, reason, retryable)
+}
+
+// GetTask 返回任务当前状态；found=false 表示从未写入过。
+func (e *Engine) GetTask(name string) (TaskStatus, bool, error) {
+	return e.task.Status(name)
 }
 
 // Addr 返回 server 模式的监听地址（Host:Port）。embedded 模式返回空串。

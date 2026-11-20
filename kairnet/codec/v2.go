@@ -66,6 +66,17 @@ const (
 	// 处理，响应用既有 OpcodeOK/OpcodeErr。
 	OpcodeListWrites uint8 = 0x0D
 
+	// OpcodeTaskClaim/OpcodeTaskCheckpoint/OpcodeTaskRenew/OpcodeTaskComplete/
+	// OpcodeTaskFail：task plane 的任务协调操作。载荷是手写 TLV 信封
+	// （控制字段带长度上限），checkpoint/outcome 为不透明字节块，编解码见
+	// proto/task_frame.go。与上面时态内核的 opcode 同类：不参与 ack 三档
+	// 窗口/累计记账，按"请求-即时响应"处理，响应用既有 OpcodeOK/OpcodeErr。
+	OpcodeTaskClaim      uint8 = 0x0E
+	OpcodeTaskCheckpoint uint8 = 0x0F
+	OpcodeTaskRenew      uint8 = 0x10
+	OpcodeTaskComplete   uint8 = 0x11
+	OpcodeTaskFail       uint8 = 0x12
+
 	OpcodeOK  uint8 = 0x80
 	OpcodeErr uint8 = 0x81
 
@@ -114,6 +125,15 @@ const (
 	// 由 service/router_v2.go 的 handlePutVersioned 在协议层强制（M4
 	// WriteAsAgent 此前只是应用层 API 闸门，见 internal/aiplane/doc.go）。
 	ErrCodeUnauthorizedRole uint16 = 0x4001
+	// ErrCodeTask* 是新增的 0x5xxx 段（task plane 控制面）：TASK_CLAIM/
+	// CHECKPOINT/RENEW/COMPLETE/FAIL 的结构化拒绝。码本身表达分类
+	// （leased/not_due/stale_attempt/abandoned/invalid），具体细节（持有者、
+	// 到期时间）由客户端读任务状态获取，不塞进 reason 文本。
+	ErrCodeTaskLeased       uint16 = 0x5001
+	ErrCodeTaskNotDue       uint16 = 0x5002
+	ErrCodeTaskStaleAttempt uint16 = 0x5003
+	ErrCodeTaskAbandoned    uint16 = 0x5004
+	ErrCodeTaskInvalid      uint16 = 0x5005
 )
 
 // type（RFC §3.2），与 service/ingesthook/schema 的注册表对齐。
