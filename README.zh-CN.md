@@ -35,7 +35,7 @@ QuantBrew（Rust）───┘                                      │
 | 能力 | 当前范围 |
 | --- | --- |
 | 持久化存储 | 单机 WAL、LSM（MemTable、SSTable、压缩、范围扫描），重启后恢复；可选 Raft/分片路径 |
-| 数据入口 | Kair v1 基础 KV/SCAN、v2 版本化读写和审计；gRPC 入口用于基准/对照 |
+| 数据入口 | Kair v1 基础 KV/SCAN、v2 版本化读写和审计 |
 | 契约 | 服务端启动加载 `contracts/*.schema.json` 并校验已注册类型；Go 嵌入式 `Engine` 不自动加载这些文件 |
 | AI 数据平面 | Go 嵌入式 `BuildContext`/`SubmitProposal`、提议与证据查询的现有实现；不是完整的网络侧 Agent 工具集 |
 

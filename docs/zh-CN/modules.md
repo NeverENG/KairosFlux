@@ -54,7 +54,7 @@
 | [internal/identity/](../../internal/identity/) | Agent 来源角色及 Proposal 键前缀的共享判定。 |
 | [internal/aiplane/](../../internal/aiplane/) | Context、Proposal、相似度与证据图谱的 Go 侧实现；不要理解成现成 Python 工具。 |
 
-## 可选、对照与待移除部分
+## 可选与待移除部分
 
 | 模块 | 当前角色 / 边界 |
 | --- | --- |
@@ -62,7 +62,6 @@
 | [cluster/](../../cluster/) | 可选归属计算、路由和副本读选择；当前范围 `SCAN` 不跨分片汇总。 |
 | [service/shardkv/](../../service/shardkv/) | `experimental` 构建标签下的 Multi-Raft 分片原型，默认构建不包含。 |
 | [internal/admission/](../../internal/admission/) | 按配置启用的网关准入/过载控制。 |
-| [internal/kvgrpc/](../../internal/kvgrpc/) | 用于基准/协议对照的 gRPC 实现，非生产主入口。 |
 | [internal/researchdata/](../../internal/researchdata/) | 研究数据客户端、QuantBrew 实验导入/索引和策略阶段值；无 Job 执行器。 |
 
 ## 可执行程序、样例和辅助文件
@@ -72,8 +71,7 @@
 | [cmd/kairosflux-server/](../../cmd/kairosflux-server/) | 生产 Kair 服务端入口。 |
 | [cmd/kairosflux-cli/](../../cmd/kairosflux-cli/) | 基本 KV、时点查询与审计命令。 |
 | [cmd/kairosflux-import-registry/](../../cmd/kairosflux-import-registry/) | 一次性导入 QuantBrew 实验记录，不负责调度。 |
-| [cmd/kairosflux-grpc-server/](../../cmd/kairosflux-grpc-server/) | gRPC 对照服务。 |
-| [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/)、[bench-grpc/](../../cmd/kairosflux-bench-grpc/) | Kair 与 gRPC 的压测入口。 |
+| [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/) | Kair 协议与存储压测入口。 |
 | [cmd/kairosflux-ingest/](../../cmd/kairosflux-ingest/) | 存储引擎摄入基准。 |
 | [cmd/kairosflux-crashsim/](../../cmd/kairosflux-crashsim/) | 崩溃/恢复实验辅助进程。 |
 | [cmd/kairosflux-sample-embedded/](../../cmd/kairosflux-sample-embedded/) | 无网络 Go Engine 样例。 |

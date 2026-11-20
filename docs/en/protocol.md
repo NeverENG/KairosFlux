@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/protocol.md) · [Documentation index](README.md)
 
-Kair is the production network entry point; the embedded Go `Engine` does not use the network. `internal/kvgrpc` is for benchmarking/protocol comparison. This page is a **navigation map** of the current protocol, not a substitute for its implementation or a complete rewrite of the former field-by-field RFCs.
+Kair is the production network entry point; the embedded Go `Engine` does not use the network. This page is a **navigation map** of the current protocol, not a substitute for its implementation or a complete rewrite of the former field-by-field RFCs.
 
 | Layer | Current source |
 | --- | --- |

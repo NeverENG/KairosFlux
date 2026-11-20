@@ -54,7 +54,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [internal/identity/](../../internal/identity/) | Shared agent-source role and Proposal key-prefix checks. |
 | [internal/aiplane/](../../internal/aiplane/) | Go-side Context, Proposal, similarity, and evidence graph; not pre-built Python tools. |
 
-## Optional, comparison, and pending removal
+## Optional and pending removal
 
 | Module | Current role / boundary |
 | --- | --- |
@@ -62,7 +62,6 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [cluster/](../../cluster/) | Optional ownership, routing, and replica read selection; current `SCAN` does not aggregate shards. |
 | [service/shardkv/](../../service/shardkv/) | Multi-Raft shard prototype behind the `experimental` build tag; excluded by default. |
 | [internal/admission/](../../internal/admission/) | Config-gated gateway admission and overload control. |
-| [internal/kvgrpc/](../../internal/kvgrpc/) | gRPC benchmark/protocol comparison, not the primary production entry point. |
 | [internal/researchdata/](../../internal/researchdata/) | Research data client, QuantBrew experiment import/index, and strategy phase values; no Job runner. |
 
 ## Programs, samples, and supporting files
@@ -72,8 +71,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [cmd/kairosflux-server/](../../cmd/kairosflux-server/) | Production Kair server. |
 | [cmd/kairosflux-cli/](../../cmd/kairosflux-cli/) | Basic KV, point-in-time reads, and audit commands. |
 | [cmd/kairosflux-import-registry/](../../cmd/kairosflux-import-registry/) | One-shot QuantBrew experiment data import; no scheduler. |
-| [cmd/kairosflux-grpc-server/](../../cmd/kairosflux-grpc-server/) | gRPC comparison server. |
-| [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/) and [bench-grpc/](../../cmd/kairosflux-bench-grpc/) | Kair and gRPC benchmarks. |
+| [cmd/kairosflux-bench/](../../cmd/kairosflux-bench/) | Kair protocol and storage benchmarks. |
 | [cmd/kairosflux-ingest/](../../cmd/kairosflux-ingest/) | Storage-engine ingestion benchmark. |
 | [cmd/kairosflux-crashsim/](../../cmd/kairosflux-crashsim/) | Crash/recovery experiment helper. |
 | [cmd/kairosflux-sample-embedded/](../../cmd/kairosflux-sample-embedded/) | Network-free Go Engine example. |
