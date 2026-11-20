@@ -35,7 +35,7 @@ QuantBrew (Rust) ────┘                                       │
 | Capability | Current scope |
 | --- | --- |
 | Persistence | Standalone WAL + LSM (MemTable, SSTable, compaction, range scan), restart recovery; optional Raft/sharding paths |
-| Data entry | Kair v1 basic KV/SCAN and v2 versioned reads/writes and audit; gRPC is a benchmark/comparison endpoint |
+| Data entry | Kair v1 basic KV/SCAN and v2 versioned reads/writes and audit |
 | Contracts | Server startup loads `contracts/*.schema.json` for registered type validation; the embedded Go `Engine` does not load them automatically |
 | AI data plane | Existing Go embedded `BuildContext`/`SubmitProposal` and proposal/evidence logic; not a complete network-facing agent toolset |
 

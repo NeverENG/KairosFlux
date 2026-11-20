@@ -17,7 +17,7 @@ This illustrates ownership, not a promise that every Python/Rust research object
 
 - `cmd/kairosflux-server` builds `service.Node`: it loads `contracts/*.schema.json` and wires v1/v2 Kair handlers, the ingestion filter, and config-gated features. In standalone mode `service.KVServer` durably writes through WAL; storage handles MemTable, SSTable, range scans, and compaction.
 - The root Go `Engine` exports `NewEmbedded`, `Open`, and `Serve`. Embedded mode opens no network listener and supports standalone only. It shares the storage and core routing path with the production `Node`, but **does not automatically load** the `contracts/` validation files. Do not assume the two startup modes validate all inputs identically.
-- `client/python/bandb_client.py` supports Kair quote ingestion and some v2 operations. `internal/kvgrpc` is a benchmark/protocol comparison entry point, not the primary production path. The Go AI Context/Proposal entry points are in `kairosflux.go`; this does not imply equivalent high-level Python methods already exist.
+- `client/python/bandb_client.py` supports Kair quote ingestion and some v2 operations. The Go AI Context/Proposal entry points are in `kairosflux.go`; this does not imply equivalent high-level Python methods already exist.
 
 ## Optional and pending removal
 
