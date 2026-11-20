@@ -649,3 +649,72 @@ func TestTemporalStore_ListWritesPageAppliesFiltersWithCursor(t *testing.T) {
 		t.Fatalf("过滤后第二页应只有 q:a@3 且无更多: %+v hasMore=%v", res2.Entries, hasMore2)
 	}
 }
+
+func TestTemporalStore_PutVersionedIfRequiresExpectedSeq(t *testing.T) {
+	kv := setupTemporalTest(t)
+	ts := NewTemporalStore(kv)
+	logical := "task:status:research"
+
+	seq, ok, err := ts.PutVersionedIf(logical, 0, []byte("a"), 100, "worker-a", 0)
+	if err != nil || !ok || seq != 1 {
+		t.Fatalf("首次条件写应成功 seq=1: seq=%d ok=%v err=%v", seq, ok, err)
+	}
+
+	if _, ok, err := ts.PutVersionedIf(logical, 0, []byte("b"), 200, "worker-b", 0); err != nil || ok {
+		t.Fatalf("期望 seq=0 与实际 seq=1 不符时应拒绝: ok=%v err=%v", ok, err)
+	}
+
+	seq, ok, err = ts.PutVersionedIf(logical, 1, []byte("b"), 300, "worker-b", 0)
+	if err != nil || !ok || seq != 2 {
+		t.Fatalf("期望 seq=1 应成功 seq=2: seq=%d ok=%v err=%v", seq, ok, err)
+	}
+
+	versions, err := ts.ListVersions(logical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 2 || string(versions[1].Payload) != "b" {
+		t.Fatalf("条件写失败不应落盘: %+v", versions)
+	}
+}
+
+func TestTemporalStore_PutVersionedIfConcurrentSingleWinner(t *testing.T) {
+	kv := setupTemporalTest(t)
+	ts := NewTemporalStore(kv)
+	logical := "task:status:race"
+
+	const competitors = 8
+	var wg sync.WaitGroup
+	wins := make(chan uint64, competitors)
+	for i := range competitors {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			seq, ok, err := ts.PutVersionedIf(logical, 0, []byte(fmt.Sprintf("w%d", i)), int64(i), "worker", 0)
+			if err != nil {
+				t.Errorf("条件写失败: %v", err)
+				return
+			}
+			if ok {
+				wins <- seq
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(wins)
+
+	got := 0
+	for seq := range wins {
+		got++
+		if seq != 1 {
+			t.Fatalf("唯一赢家的 seq 应为 1，实际 %d", seq)
+		}
+	}
+	if got != 1 {
+		t.Fatalf("期望恰好一个赢家，实际 %d", got)
+	}
+	versions, err := ts.ListVersions(logical)
+	if err != nil || len(versions) != 1 {
+		t.Fatalf("应只落一个版本: len=%d err=%v", len(versions), err)
+	}
+}

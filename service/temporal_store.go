@@ -113,7 +113,40 @@ func (s *TemporalStore) PutVersioned(logical string, payload []byte, writeNanos 
 	if err != nil {
 		return 0, err
 	}
+	if err := s.writeLocked(logical, seq, payload, writeNanos, source, schemaVersion); err != nil {
+		return 0, err
+	}
+	return seq, nil
+}
 
+// PutVersionedIf 是条件追加（compare-and-append）：只有当前最新 seq 等于
+// expectedSeq 时才落盘新版本，否则返回 ok=false 且不产生任何写入。
+// expectedSeq==0 表示"期望该逻辑键尚无版本"。
+//
+// 判定与写入在同一把按逻辑键的锁内完成（lockFor），因此多个调用方并发
+// 以同一个 expectedSeq 竞争时恰好一个成功——task plane 的 claim/complete
+// 等状态迁移的 CAS 语义由这里保证，不另建并发控制。
+func (s *TemporalStore) PutVersionedIf(logical string, expectedSeq uint64, payload []byte, writeNanos int64, source string, schemaVersion uint32) (uint64, bool, error) {
+	lock := s.lockFor(logical)
+	lock.Lock()
+	defer lock.Unlock()
+
+	seq, err := s.nextSeq(logical)
+	if err != nil {
+		return 0, false, err
+	}
+	if seq-1 != expectedSeq {
+		return 0, false, nil
+	}
+	if err := s.writeLocked(logical, seq, payload, writeNanos, source, schemaVersion); err != nil {
+		return 0, false, err
+	}
+	return seq, true, nil
+}
+
+// writeLocked 落一个版本：先版本键、后 :current 指针（崩溃安全顺序见
+// temporal 包文档），并更新进程内 seqCache。调用方必须已持有 lockFor(logical)。
+func (s *TemporalStore) writeLocked(logical string, seq uint64, payload []byte, writeNanos int64, source string, schemaVersion uint32) error {
 	v := temporal.Version{
 		LogicalKey:    logical,
 		Seq:           seq,
@@ -132,7 +165,7 @@ func (s *TemporalStore) PutVersioned(logical string, payload []byte, writeNanos 
 		Key:   []byte(versionKey),
 		Value: temporal.EncodeVersionRecord(v),
 	}); err != nil {
-		return 0, err
+		return err
 	}
 
 	currentKey := temporal.CurrentStorageKey(logical)
@@ -142,11 +175,11 @@ func (s *TemporalStore) PutVersioned(logical string, payload []byte, writeNanos 
 		Key:   []byte(currentKey),
 		Value: currentVal,
 	}); err != nil {
-		return 0, err
+		return err
 	}
 
 	s.seqCache.Store(logical, seq)
-	return seq, nil
+	return nil
 }
 
 // ListVersions 返回 logical 的全部版本，按 seq 升序。没有任何版本时返回空
