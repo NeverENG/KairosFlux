@@ -81,9 +81,9 @@ func TestShardRouting_MultiNode(t *testing.T) {
 		port, _ := strconv.Atoi(portStr)
 		srv.IP = host
 		srv.Port = port
-		srv.AddRouter(proto.MsgPut, router)
-		srv.AddRouter(proto.MsgGet, router)
-		srv.AddRouter(proto.MsgDelete, router)
+		srv.AddHandler(proto.MsgPut, router)
+		srv.AddHandler(proto.MsgGet, router)
+		srv.AddHandler(proto.MsgDelete, router)
 		srv.SetConnStartFunc(router.OnConnStart)
 		srv.SetConnStopFunc(router.OnConnStop)
 		srv.Start()

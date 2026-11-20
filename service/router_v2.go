@@ -20,7 +20,7 @@ import (
 
 // RouterV2 是 Kair v2（docs/rfc/Kair-2.md）的业务处理器：单一 HandleV2
 // 方法内部按 opcode switch（与 v1 Router.Handle 对 msgID switch 是同一写法），
-// 由 kairnet.Server.AddRouterV2 注册。
+// 由 kairnet.Server.SetV2Handler 注册。
 //
 // 与 v1 Router 的两处刻意的范围收缩（本阶段明确不做，不是遗漏）：
 //   - 不支持 SetRouting 的分片转发能力——v2 本阶段的任务是 ack 三档协商/

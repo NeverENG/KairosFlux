@@ -61,7 +61,7 @@ func TestGracefulStopDeliversInFlightResponse(t *testing.T) {
 	}
 	srv := kairnet.NewServer()
 	srv.IP, srv.Port = host, port
-	srv.AddRouter(proto.MsgPut, h)
+	srv.AddHandler(proto.MsgPut, h)
 	srv.Start()
 
 	var conn net.Conn

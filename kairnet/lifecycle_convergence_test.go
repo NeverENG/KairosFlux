@@ -36,7 +36,7 @@ func startTestServer(t *testing.T, h kairnet.Handler) (*kairnet.Server, string) 
 
 	srv := kairnet.NewServer()
 	srv.IP, srv.Port = host, port
-	srv.AddRouter(proto.MsgPut, h)
+	srv.AddHandler(proto.MsgPut, h)
 	srv.Start()
 	return srv, addr
 }

@@ -12,8 +12,7 @@ import "github.com/ChronoBrew/KairosFlux/kairnet/handler"
 // 只暴露 Handler/HandlerV2 接口，不带任何 Router 概念——BaseRouter 别名已
 // 随本次重构从根包撤出（kairnet/handler.BaseRouter 仍在 handler 包内，
 // kairnet 自身的测试需要空实现时直接 import 该包），Server 的注册方法
-// 相应换成 AddHandler/SetV2Handler（AddRouter/AddRouterV2 只作 deprecated
-// 过渡别名）。
+// 相应换成 AddHandler/SetV2Handler。
 //
 // Conn 相对 RFC 迁移映射表有一处记录在案的偏差（见 kairnet/handler/handler.go
 // 顶部注释）：表里写的是"迁入 transport"，实际迁入了 handler，以避免

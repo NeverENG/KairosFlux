@@ -76,7 +76,7 @@ func TestZeroWorkerPoolSizeDoesNotConcurrentlyDispatch(t *testing.T) {
 	h := &blockingHandler{release: make(chan struct{})}
 	srv := kairnet.NewServer()
 	srv.IP, srv.Port = host, port
-	srv.AddRouter(proto.MsgPut, h)
+	srv.AddHandler(proto.MsgPut, h)
 	srv.Start()
 	t.Cleanup(srv.Stop)
 
