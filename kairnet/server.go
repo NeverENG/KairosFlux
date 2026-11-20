@@ -136,18 +136,6 @@ func (s *Server) onFrameV2(msg *codec.MessageV2, conn Conn) {
 	s.V2Handler.HandleV2(req)
 }
 
-// Deprecated: AddRouter 是 AddHandler 的过渡别名（分层重构期间旧调用方仍可用，
-// 新代码一律走 AddHandler——"Router" 概念已从传输层公共 API 撤出，见
-// handler.go 顶部注释）。main 与 service.Node 必须走新路径。
-func (s *Server) AddRouter(msgID string, router Handler) {
-	s.AddHandler(msgID, router)
-}
-
-// Deprecated: AddRouterV2 是 SetV2Handler 的过渡别名，同上。
-func (s *Server) AddRouterV2(h HandlerV2) {
-	s.SetV2Handler(h)
-}
-
 func (s *Server) Start() {
 	slog.Info("kairnet server starting", "name", s.Name, "addr", fmt.Sprintf("%s:%d", s.IP, s.Port))
 

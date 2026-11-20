@@ -52,11 +52,11 @@ func startTestKairosFluxServer(t *testing.T) string {
 	srv := kairnet.NewServer()
 	srv.IP = host
 	srv.Port = port
-	srv.AddRouter(proto.MsgPut, router)
-	srv.AddRouter(proto.MsgGet, router)
-	srv.AddRouter(proto.MsgDelete, router)
-	srv.AddRouter(proto.MsgScan, router)
-	srv.AddRouterV2(routerV2)
+	srv.AddHandler(proto.MsgPut, router)
+	srv.AddHandler(proto.MsgGet, router)
+	srv.AddHandler(proto.MsgDelete, router)
+	srv.AddHandler(proto.MsgScan, router)
+	srv.SetV2Handler(routerV2)
 	srv.SetConnStartFunc(router.OnConnStart)
 	srv.SetConnStopFunc(router.OnConnStop)
 	srv.Start()

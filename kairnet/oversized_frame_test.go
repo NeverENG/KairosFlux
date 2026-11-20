@@ -51,7 +51,7 @@ func TestOversizedFrameRejectedBeforeReadingPayload(t *testing.T) {
 	h := &countingHandler{handled: make(chan struct{}, 1)}
 	srv := kairnet.NewServer()
 	srv.IP, srv.Port = host, port
-	srv.AddRouter(proto.MsgPut, h)
+	srv.AddHandler(proto.MsgPut, h)
 	srv.Start()
 	t.Cleanup(srv.Stop)
 

@@ -14,7 +14,7 @@ import "github.com/ChronoBrew/KairosFlux/kairnet/transport"
 // acceptLoop/Start/退避逻辑 → transport，直接移动"）。实现时发现 Server
 // 是把 transport（监听/连接）、dispatch（MsgHandle）、进程级信号处理
 // 三者组合在一起的编排对象，把它整体搬进 transport 会让 transport 依赖
-// dispatch（Server.AddRouter 转发给 MsgHandle、Server.Stop 需要先后驱动
+// dispatch（Server.AddHandler 转发给 MsgHandle、Server.Stop 需要先后驱动
 // MsgHandle.Stop 与 ConnMgr 的三个方法），直接违反 C.4.2 强调的"transport
 // 与 dispatch 是兄弟关系，互相不依赖"。Server 保留在根包，只是把它内部
 // 依赖的原始连接收发能力（Connection/ConnManager）委托给 transport——这与
