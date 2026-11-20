@@ -2,10 +2,10 @@ package service
 
 // Node 是服务器进程的生命周期唯一持有者（五层重构的 service 层门面，见
 // docs/调研-架构调整-分层与Node门面.md）：KVServer/Router/RouterV2/Filter/
-// HA/metrics/kairnet.Server 的装配与启停全部收敛在这一处，对外只暴露
+// metrics/kairnet.Server 的装配与启停全部收敛在这一处，对外只暴露
 // Serve/Stop/Addr。cmd/kairosflux-server 的 main 只是它的薄壳。
 //
-// 装配顺序是旧 main 代码的逐行迁移（契约加载→KVServer→HA→Router→分片/
+// 装配顺序是旧 main 代码的逐行迁移（契约加载→KVServer→Router→分片/
 // 准入→Filter→RouterV2→Handler 注入→metrics→Serve），配置门控的启动项
 // （分片路由/准入）保持各自 bootstrap 函数的语义不变；Handler 注入
 // 走 kairnet 新路径 AddHandler/SetV2Handler（Router 概念已从传输层 API
@@ -34,7 +34,6 @@ import (
 // Serve 阻塞运行，Stop 幂等优雅关停。
 type Node struct {
 	kv     *KVServer
-	ha     *HA
 	server *kairnet.Server
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -52,8 +51,6 @@ func NewNode() (*Node, error) {
 
 	kv := NewKVServer()
 	go kv.Run()
-
-	ha := NewHA(kv)
 
 	router := NewRouter(kv)
 	// 按配置开启分片路由：不属本节点的 key 经 KairNet 转发到 owner（默认关闭）。
@@ -97,7 +94,7 @@ func NewNode() (*Node, error) {
 		guardrail.Start(ctx)
 	}
 
-	return &Node{kv: kv, ha: ha, server: server, ctx: ctx, cancel: cancel}, nil
+	return &Node{kv: kv, server: server, ctx: ctx, cancel: cancel}, nil
 }
 
 // Addr 返回本节点的监听地址（Host:Port，来自 config.G 的默认值，NewNode
@@ -111,7 +108,6 @@ func (n *Node) Addr() string {
 // kairnet 的 Serve 循环（信号到达后内部自行优雅关停）。
 func (n *Node) Serve() {
 	fmt.Println("Starting Server...")
-	fmt.Printf("HA initialized, initial health status: %v\n", n.ha.IsHealthy())
 	n.kv.WaitUntilReady()
 	n.server.Serve()
 }

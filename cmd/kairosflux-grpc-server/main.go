@@ -24,16 +24,12 @@ func main() {
 
 	go kvServer.Run()
 
-	ha := service.NewHA(kvServer)
-
 	// 挂载与 Kair 入口相同的长度与 schema 校验。
 	filter := ingesthook.NewFilter(0)
 	grpcSrv := kvgrpc.NewGRPCServer(kvServer, filter)
 
 	fmt.Println("Starting gRPC Server...")
-	fmt.Printf("HA initialized, initial health status: %v\n", ha.IsHealthy())
 	fmt.Printf("Listening on %s\n", *addr)
-
 	if err := grpcSrv.Serve(*addr); err != nil {
 		fmt.Fprintf(os.Stderr, "gRPC server error: %v\n", err)
 		os.Exit(1)
