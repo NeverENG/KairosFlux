@@ -171,6 +171,36 @@
       "corr_id": 12,
       "data_hex": "01000000020000006c6b07000000000000006400000000000000010000006a020000000200616202000000706c01000000000e000000020000006c6b0700000000000000",
       "frame_hex": "02ba008000000c0000004400000001000000020000006c6b07000000000000006400000000000000010000006a020000000200616202000000706c01000000000e000000020000006c6b0700000000000000"
+    },
+    {
+      "name": "v2_task_claim_request",
+      "description": "task plane 新增：TASK_CLAIM(0x0E) 请求负载（proto.EncodeTaskClaimRequest）。手写 TLV：[ver u8=1][nameLen u16 LE][name][workerLen u16 LE][worker][ttlSeconds u32 LE]，name=\"research:daily\" worker=\"w1\" ttl=300。corr_id=1，type=0x0000。",
+      "flags": 0,
+      "opcode": 14,
+      "type": 0,
+      "corr_id": 1,
+      "data_hex": "010e0072657365617263683a6461696c79020077312c010000",
+      "frame_hex": "02ba000e00000100000019000000010e0072657365617263683a6461696c79020077312c010000"
+    },
+    {
+      "name": "v2_task_claim_response",
+      "description": "task plane 新增：TASK_CLAIM 的 OK(0x80) 响应负载（proto.EncodeTaskStatus）。布局：[ver][name][phase u8][owner][attempt u32][token][leaseUntil i64][nextDue i64][checkpoint blob][refs][outcome blob][lastError]；phase=running(2)、attempt=1、token=\"tok-1\"、leaseUntil=1000ns。corr_id=2，type=0x0000。",
+      "flags": 0,
+      "opcode": 128,
+      "type": 0,
+      "corr_id": 2,
+      "data_hex": "010e0072657365617263683a6461696c790202007731010000000500746f6b2d31e8030000000000000000000000000000000000000000000000000000",
+      "frame_hex": "02ba00800000020000003d000000010e0072657365617263683a6461696c790202007731010000000500746f6b2d31e8030000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "v2_task_complete_request",
+      "description": "task plane 新增：TASK_COMPLETE(0x11) 请求负载（proto.EncodeTaskCompleteRequest）：[ver][name][token][checkpoint blob][refs][outcome blob]，checkpoint=\"{\\\"cursor\\\":42}\"、refs=[\"proposal:abc\"]、outcome=\"{\\\"ok\\\":true}\"（blob 是不透明 JSON，不参与手写字段布局）。corr_id=3，type=0x0000。",
+      "flags": 0,
+      "opcode": 17,
+      "type": 0,
+      "corr_id": 3,
+      "data_hex": "010e0072657365617263683a6461696c790500746f6b2d310d0000007b22637572736f72223a34327d01000c0070726f706f73616c3a6162630b0000007b226f6b223a747275657d",
+      "frame_hex": "02ba001100000300000048000000010e0072657365617263683a6461696c790500746f6b2d310d0000007b22637572736f72223a34327d01000c0070726f706f73616c3a6162630b0000007b226f6b223a747275657d"
     }
   ],
 

@@ -27,6 +27,11 @@ from bandb_client import (
     OPCODE_OK,
     OPCODE_STAT,
     OPCODE_STAT_ACK,
+    OPCODE_TASK_CLAIM,
+    OPCODE_TASK_CHECKPOINT,
+    OPCODE_TASK_COMPLETE,
+    OPCODE_TASK_FAIL,
+    OPCODE_TASK_RENEW,
     OPCODE_WINDOW_ACK,
     SNIFF_V1,
     SNIFF_V2,
@@ -44,6 +49,12 @@ from bandb_client import (
     decode_list_writes_request_v2,
     decode_list_writes_response,
     decode_list_writes_response_v2,
+    decode_task_checkpoint_request,
+    decode_task_claim_request,
+    decode_task_complete_request,
+    decode_task_fail_request,
+    decode_task_renew_request,
+    decode_task_status,
     encode_ack_body,
     encode_frame,
     encode_frame_v2,
@@ -51,8 +62,15 @@ from bandb_client import (
     encode_list_writes_cursor,
     encode_list_writes_request,
     encode_list_writes_request_v2,
+    encode_task_checkpoint_request,
+    encode_task_claim_request,
+    encode_task_complete_request,
+    encode_task_fail_request,
+    encode_task_renew_request,
+    encode_task_status,
     negotiate_client,
     sniff_version,
+    TaskStatus,
 )
 
 _VECTORS_PATH = os.path.join(
@@ -150,6 +168,36 @@ class FrameVectorTests(unittest.TestCase):
 
     def test_list_writes_response_page_with_next_cursor(self):
         self._assert_frame_matches("v2_list_writes_response_page_with_next_cursor")
+
+    def test_task_claim_request(self):
+        self._assert_frame_matches("v2_task_claim_request")
+
+    def test_task_claim_response(self):
+        self._assert_frame_matches("v2_task_claim_response")
+
+    def test_task_complete_request(self):
+        self._assert_frame_matches("v2_task_complete_request")
+
+    def test_task_vectors_decode_to_documented_fields(self):
+        """三份 task 向量不仅要帧字节一致，还要解出文档声明的字段值。"""
+        req = self._frame("v2_task_claim_request")
+        self.assertEqual(
+            decode_task_claim_request(bytes.fromhex(req["data_hex"])),
+            ("research:daily", "w1", 300),
+        )
+        resp = self._frame("v2_task_claim_response")
+        status = decode_task_status(bytes.fromhex(resp["data_hex"]))
+        self.assertEqual(status.name, "research:daily")
+        self.assertEqual(status.phase, "running")
+        self.assertEqual(status.owner, "w1")
+        self.assertEqual(status.attempt, 1)
+        self.assertEqual(status.token, "tok-1")
+        self.assertEqual(status.lease_until_nanos, 1000)
+        done = self._frame("v2_task_complete_request")
+        self.assertEqual(
+            decode_task_complete_request(bytes.fromhex(done["data_hex"])),
+            ("research:daily", "tok-1", b'{"cursor":42}', ["proposal:abc"], b'{"ok":true}'),
+        )
 
     def test_magic_byte_order_lock(self):
         """锁定 wire 上第 0 字节是 version、第 1 字节才是 magic——不通过
@@ -547,6 +595,84 @@ class BanDBClientV2ReconciliationTests(unittest.TestCase):
         window_ack, stat_ack = c.bye(corr_id=3)
         self.assertIsNone(window_ack)
         self.assertEqual(stat_ack.received, 4)
+
+
+class TaskFrameCodecTests(unittest.TestCase):
+    """task plane 载荷编解码：控制字段手写 TLV，checkpoint/outcome 为不透明
+    字节块。逐字段与 proto/task_frame.go 对齐。"""
+
+    def test_claim_request_round_trip(self):
+        data = encode_task_claim_request("research:daily", "worker-1", 300)
+        self.assertEqual(decode_task_claim_request(data), ("research:daily", "worker-1", 300))
+        self.assertEqual(data[0], 1)  # 版本字节
+
+    def test_checkpoint_request_round_trip(self):
+        data = encode_task_checkpoint_request(
+            "research:daily", "tok-1", b'{"cursor":42}', ["proposal:abc", "evidence:1"]
+        )
+        self.assertEqual(
+            decode_task_checkpoint_request(data),
+            ("research:daily", "tok-1", b'{"cursor":42}', ["proposal:abc", "evidence:1"]),
+        )
+
+    def test_renew_request_round_trip(self):
+        data = encode_task_renew_request("research:daily", "tok-1", 60)
+        self.assertEqual(decode_task_renew_request(data), ("research:daily", "tok-1", 60))
+
+    def test_complete_request_round_trip(self):
+        data = encode_task_complete_request(
+            "research:daily", "tok-1", b'{"done":true}', ["proposal:abc"], b'{"ok":true}'
+        )
+        self.assertEqual(
+            decode_task_complete_request(data),
+            ("research:daily", "tok-1", b'{"done":true}', ["proposal:abc"], b'{"ok":true}'),
+        )
+
+    def test_fail_request_round_trip(self):
+        data = encode_task_fail_request("research:daily", "tok-1", "boom", True)
+        self.assertEqual(
+            decode_task_fail_request(data), ("research:daily", "tok-1", "boom", True)
+        )
+
+    def test_status_round_trip(self):
+        status = TaskStatus(
+            name="research:daily", phase="running", owner="worker-1", attempt=3,
+            token="tok-1", lease_until_nanos=12345, next_due_nanos=67890,
+            checkpoint=b'{"cursor":42}', refs=["proposal:abc"],
+            outcome=b'{"ok":true}', last_error="retry me",
+        )
+        self.assertEqual(decode_task_status(encode_task_status(status)), status)
+
+    def test_truncated_frames_rejected(self):
+        frames = [
+            encode_task_claim_request("research:daily", "worker", 1),
+            encode_task_checkpoint_request("research:daily", "tok", b"cp", ["r"]),
+            encode_task_renew_request("research:daily", "tok", 1),
+            encode_task_complete_request("research:daily", "tok", b"cp", ["r"], b"out"),
+            encode_task_fail_request("research:daily", "tok", "boom", False),
+        ]
+        decoders = [
+            decode_task_claim_request,
+            decode_task_checkpoint_request,
+            decode_task_renew_request,
+            decode_task_complete_request,
+            decode_task_fail_request,
+        ]
+        for decode, frame in zip(decoders, frames):
+            for cut in range(len(frame)):
+                with self.assertRaises(ProtocolError):
+                    decode(frame[:cut])
+
+    def test_unknown_version_rejected(self):
+        data = bytearray(encode_task_claim_request("n", "w", 1))
+        data[0] = 0xEE
+        with self.assertRaises(ProtocolError):
+            decode_task_claim_request(bytes(data))
+
+    def test_oversized_name_rejected(self):
+        data = encode_task_claim_request("x" * 300, "w", 1)
+        with self.assertRaises(ProtocolError):
+            decode_task_claim_request(data)
 
 
 if __name__ == "__main__":

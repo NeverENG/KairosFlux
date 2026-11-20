@@ -356,6 +356,16 @@ OPCODE_STAT = 0x08
 # v2_list_writes_request/v2_list_writes_response_one_entry_no_source_breakdown。
 OPCODE_LIST_WRITES = 0x0D
 
+# OPCODE_TASK_CLAIM(0x0E)/CHECKPOINT(0x0F)/RENEW(0x10)/COMPLETE(0x11)/
+# FAIL(0x12)：task plane 的任务协调操作（对应 Go: kairnet/codec.OpcodeTask*）。
+# 载荷是手写 TLV 信封，checkpoint/outcome 为不透明字节块，编解码见本文件
+# 末尾的 TASK_* 段，布局对齐 proto/task_frame.go。
+OPCODE_TASK_CLAIM = 0x0E
+OPCODE_TASK_CHECKPOINT = 0x0F
+OPCODE_TASK_RENEW = 0x10
+OPCODE_TASK_COMPLETE = 0x11
+OPCODE_TASK_FAIL = 0x12
+
 OPCODE_OK = 0x80
 OPCODE_ERR = 0x81
 
@@ -373,6 +383,14 @@ TYPE_QUOTE = 1  # 对应 "quote:" 前缀校验器
 ERR_CODE_NONE = 0x0000
 ERR_CODE_MALFORMED_FRAME = 0x1001
 ERR_CODE_SCHEMA_VALIDATION = 0x3001
+
+# task plane 的结构化拒绝码（对应 Go: codec.ErrCodeTask*）：码本身表达
+# 分类，持有者/到期时间由客户端读任务状态获取，不塞进 reason 文本。
+ERR_CODE_TASK_LEASED = 0x5001
+ERR_CODE_TASK_NOT_DUE = 0x5002
+ERR_CODE_TASK_STALE_ATTEMPT = 0x5003
+ERR_CODE_TASK_ABANDONED = 0x5004
+ERR_CODE_TASK_INVALID = 0x5005
 
 
 class UnsupportedV2VersionError(BanDBError):
@@ -849,6 +867,50 @@ class BanDBClientV2:
                 return all_entries
             cursor = next_cursor
 
+    # -- task plane（opcode 0x0E-0x12）-----------------------------------
+
+    def claim_task(self, name: str, worker: str, ttl_seconds: int) -> "TaskStatus":
+        """TASK_CLAIM：取得一次执行租约。被占用/未到期/已放弃时抛 V2Error
+        （code 为 0x5001-0x5005），不解析文本。"""
+        self._send(OPCODE_TASK_CLAIM, TYPE_UNSPECIFIED, 0,
+                   encode_task_claim_request(name, worker, ttl_seconds))
+        return self._recv_task_status("TASK_CLAIM")
+
+    def checkpoint_task(self, name: str, token: str, checkpoint: bytes = b"",
+                        refs: "list[str] | None" = None) -> "TaskStatus":
+        """TASK_CHECKPOINT：保存当前 attempt 的断点与引用，供崩溃后续跑。"""
+        self._send(OPCODE_TASK_CHECKPOINT, TYPE_UNSPECIFIED, 0,
+                   encode_task_checkpoint_request(name, token, checkpoint, refs or []))
+        return self._recv_task_status("TASK_CHECKPOINT")
+
+    def renew_task(self, name: str, token: str, ttl_seconds: int) -> "TaskStatus":
+        """TASK_RENEW：延长当前 attempt 的租约；已过期抛 V2Error(stale_attempt)。"""
+        self._send(OPCODE_TASK_RENEW, TYPE_UNSPECIFIED, 0,
+                   encode_task_renew_request(name, token, ttl_seconds))
+        return self._recv_task_status("TASK_RENEW")
+
+    def complete_task(self, name: str, token: str, checkpoint: bytes = b"",
+                      refs: "list[str] | None" = None, outcome: bytes = b"") -> "TaskStatus":
+        """TASK_COMPLETE：提交成功结果；服务端按 cadence 计算 next_due。"""
+        self._send(OPCODE_TASK_COMPLETE, TYPE_UNSPECIFIED, 0,
+                   encode_task_complete_request(name, token, checkpoint, refs or [], outcome))
+        return self._recv_task_status("TASK_COMPLETE")
+
+    def fail_task(self, name: str, token: str, reason: str, retryable: bool) -> "TaskStatus":
+        """TASK_FAIL：提交失败；retryable 且未达重试上限时回到 idle。"""
+        self._send(OPCODE_TASK_FAIL, TYPE_UNSPECIFIED, 0,
+                   encode_task_fail_request(name, token, reason, retryable))
+        return self._recv_task_status("TASK_FAIL")
+
+    def _recv_task_status(self, what: str) -> "TaskStatus":
+        header, payload = self._recv_frame()
+        if header.opcode == OPCODE_ERR:
+            code, reason = decode_v2_err_payload(payload)
+            raise V2Error(code, reason)
+        if header.opcode != OPCODE_OK:
+            raise ProtocolError(f"{what} 响应 opcode={header.opcode:#x}，期望 OK({OPCODE_OK:#x})")
+        return decode_task_status(payload)
+
 
 # ---------------------------------------------------------------------------
 # LIST_WRITES（时态内核 M2 新增 opcode 0x0D）请求/响应负载编解码。对应 Go：
@@ -1158,3 +1220,253 @@ def decode_list_writes_response_v2(body: bytes) -> Tuple[list, list, bytes]:
     if off + 4 + next_len != len(body):
         raise ProtocolError("LIST_WRITES response next_cursor length mismatch")
     return entries, source_counts, body[off + 4 : off + 4 + next_len]
+
+
+# ---------------------------------------------------------------------------
+# task plane（opcode 0x0E-0x12）请求/响应负载编解码。对应 Go：
+# proto/task_frame.go。控制字段是手写 TLV，checkpoint/outcome 是不透明
+# 字节块（当前承载 JSON）；所有解码器对截断帧、未知版本、超限字段抛
+# ProtocolError，不做猜测补全。
+# ---------------------------------------------------------------------------
+
+TASK_FRAME_VERSION = 1
+
+TASK_MAX_NAME_LEN = 256
+TASK_MAX_WORKER_LEN = 128
+TASK_MAX_TOKEN_LEN = 64
+TASK_MAX_REFS = 64
+TASK_MAX_REF_LEN = 512
+TASK_MAX_BLOB_LEN = 1 << 20
+TASK_MAX_REASON_LEN = 512
+
+_TASK_PHASE_TO_CODE = {"idle": 1, "running": 2, "succeeded": 3, "failed": 4, "abandoned": 5}
+_TASK_CODE_TO_PHASE = {code: phase for phase, code in _TASK_PHASE_TO_CODE.items()}
+
+
+class TaskStatus:
+    """任务状态（TASK_* 成功响应负载）。字段与 Go: taskplane.Status 一致。"""
+
+    def __init__(self, name: str, phase: str, owner: str = "", attempt: int = 0,
+                 token: str = "", lease_until_nanos: int = 0, next_due_nanos: int = 0,
+                 checkpoint: bytes = b"", refs: "list[str] | None" = None,
+                 outcome: bytes = b"", last_error: str = ""):
+        self.name = name
+        self.phase = phase
+        self.owner = owner
+        self.attempt = attempt
+        self.token = token
+        self.lease_until_nanos = lease_until_nanos
+        self.next_due_nanos = next_due_nanos
+        self.checkpoint = checkpoint
+        self.refs = list(refs or [])
+        self.outcome = outcome
+        self.last_error = last_error
+
+    def __eq__(self, other):
+        return isinstance(other, TaskStatus) and self.__dict__ == other.__dict__
+
+    def __repr__(self):
+        return (f"TaskStatus(name={self.name!r}, phase={self.phase!r}, owner={self.owner!r}, "
+                f"attempt={self.attempt}, token={self.token!r}, "
+                f"lease_until_nanos={self.lease_until_nanos}, next_due_nanos={self.next_due_nanos}, "
+                f"checkpoint={self.checkpoint!r}, refs={self.refs!r}, "
+                f"outcome={self.outcome!r}, last_error={self.last_error!r})")
+
+
+def _task_pack_str(value: str) -> bytes:
+    raw = value.encode("utf-8")
+    if len(raw) > 0xFFFF:
+        raise ProtocolError("task string too long")
+    return struct.pack("<H", len(raw)) + raw
+
+
+def _task_pack_blob(value: bytes) -> bytes:
+    if len(value) > TASK_MAX_BLOB_LEN:
+        raise ProtocolError("task blob too long")
+    return struct.pack("<I", len(value)) + value
+
+
+def _task_pack_refs(refs: "list[str]") -> bytes:
+    if len(refs) > TASK_MAX_REFS:
+        raise ProtocolError("too many task refs")
+    out = [struct.pack("<H", len(refs))]
+    for ref in refs:
+        out.append(_task_pack_str(ref))
+    return b"".join(out)
+
+
+def _task_read_str(data: bytes, off: int, max_len: int) -> "tuple[str, int]":
+    if off + 2 > len(data):
+        raise ProtocolError("task frame truncated (str len)")
+    (n,) = struct.unpack_from("<H", data, off)
+    off += 2
+    if n > max_len or off + n > len(data):
+        raise ProtocolError("task frame string length invalid")
+    return data[off:off + n].decode("utf-8"), off + n
+
+
+def _task_read_blob(data: bytes, off: int, max_len: int) -> "tuple[bytes, int]":
+    if off + 4 > len(data):
+        raise ProtocolError("task frame truncated (blob len)")
+    (n,) = struct.unpack_from("<I", data, off)
+    off += 4
+    if n > max_len or off + n > len(data):
+        raise ProtocolError("task frame blob length invalid")
+    return data[off:off + n], off + n
+
+
+def _task_read_refs(data: bytes, off: int) -> "tuple[list[str], int]":
+    if off + 2 > len(data):
+        raise ProtocolError("task frame truncated (refs count)")
+    (n,) = struct.unpack_from("<H", data, off)
+    off += 2
+    if n > TASK_MAX_REFS:
+        raise ProtocolError("too many task refs")
+    refs = []
+    for _ in range(n):
+        ref, off = _task_read_str(data, off, TASK_MAX_REF_LEN)
+        refs.append(ref)
+    return refs, off
+
+
+def _task_read_version(data: bytes) -> int:
+    if not data:
+        raise ProtocolError("task frame empty")
+    if data[0] != TASK_FRAME_VERSION:
+        raise ProtocolError(f"unsupported task frame version {data[0]}")
+    return 1
+
+
+def encode_task_claim_request(name: str, worker: str, ttl_seconds: int) -> bytes:
+    """TASK_CLAIM：[ver u8][name][worker][ttlSeconds u32 LE]。"""
+    return (bytes([TASK_FRAME_VERSION]) + _task_pack_str(name) + _task_pack_str(worker)
+            + struct.pack("<I", ttl_seconds))
+
+
+def decode_task_claim_request(data: bytes) -> "tuple[str, str, int]":
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    worker, off = _task_read_str(data, off, TASK_MAX_WORKER_LEN)
+    if off + 4 != len(data):
+        raise ProtocolError("task claim frame trailing bytes")
+    (ttl,) = struct.unpack_from("<I", data, off)
+    return name, worker, ttl
+
+
+def encode_task_checkpoint_request(name: str, token: str, checkpoint: bytes,
+                                   refs: "list[str]") -> bytes:
+    """TASK_CHECKPOINT：[ver][name][token][checkpoint blob][refs]。"""
+    return (bytes([TASK_FRAME_VERSION]) + _task_pack_str(name) + _task_pack_str(token)
+            + _task_pack_blob(checkpoint) + _task_pack_refs(refs))
+
+
+def decode_task_checkpoint_request(data: bytes) -> "tuple[str, str, bytes, list[str]]":
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    token, off = _task_read_str(data, off, TASK_MAX_TOKEN_LEN)
+    checkpoint, off = _task_read_blob(data, off, TASK_MAX_BLOB_LEN)
+    refs, off = _task_read_refs(data, off)
+    if off != len(data):
+        raise ProtocolError("task checkpoint frame trailing bytes")
+    return name, token, checkpoint, refs
+
+
+def encode_task_renew_request(name: str, token: str, ttl_seconds: int) -> bytes:
+    """TASK_RENEW：[ver][name][token][ttlSeconds u32 LE]。"""
+    return (bytes([TASK_FRAME_VERSION]) + _task_pack_str(name) + _task_pack_str(token)
+            + struct.pack("<I", ttl_seconds))
+
+
+def decode_task_renew_request(data: bytes) -> "tuple[str, str, int]":
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    token, off = _task_read_str(data, off, TASK_MAX_TOKEN_LEN)
+    if off + 4 != len(data):
+        raise ProtocolError("task renew frame trailing bytes")
+    (ttl,) = struct.unpack_from("<I", data, off)
+    return name, token, ttl
+
+
+def encode_task_complete_request(name: str, token: str, checkpoint: bytes,
+                                 refs: "list[str]", outcome: bytes) -> bytes:
+    """TASK_COMPLETE：[ver][name][token][checkpoint blob][refs][outcome blob]。"""
+    return (bytes([TASK_FRAME_VERSION]) + _task_pack_str(name) + _task_pack_str(token)
+            + _task_pack_blob(checkpoint) + _task_pack_refs(refs) + _task_pack_blob(outcome))
+
+
+def decode_task_complete_request(data: bytes) -> "tuple[str, str, bytes, list[str], bytes]":
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    token, off = _task_read_str(data, off, TASK_MAX_TOKEN_LEN)
+    checkpoint, off = _task_read_blob(data, off, TASK_MAX_BLOB_LEN)
+    refs, off = _task_read_refs(data, off)
+    outcome, off = _task_read_blob(data, off, TASK_MAX_BLOB_LEN)
+    if off != len(data):
+        raise ProtocolError("task complete frame trailing bytes")
+    return name, token, checkpoint, refs, outcome
+
+
+def encode_task_fail_request(name: str, token: str, reason: str, retryable: bool) -> bytes:
+    """TASK_FAIL：[ver][name][token][retryable u8][reason]。"""
+    return (bytes([TASK_FRAME_VERSION]) + _task_pack_str(name) + _task_pack_str(token)
+            + bytes([1 if retryable else 0]) + _task_pack_str(reason))
+
+
+def decode_task_fail_request(data: bytes) -> "tuple[str, str, str, bool]":
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    token, off = _task_read_str(data, off, TASK_MAX_TOKEN_LEN)
+    if off + 1 > len(data):
+        raise ProtocolError("task fail frame truncated (retryable)")
+    retryable = data[off] == 1
+    off += 1
+    reason, off = _task_read_str(data, off, TASK_MAX_REASON_LEN)
+    if off != len(data):
+        raise ProtocolError("task fail frame trailing bytes")
+    return name, token, reason, retryable
+
+
+def encode_task_status(status: TaskStatus) -> bytes:
+    """任务状态响应负载：
+    [ver][name][phase u8][owner][attempt u32][token][leaseUntil i64][nextDue i64]
+    [checkpoint blob][refs][outcome blob][lastError]。"""
+    phase_code = _TASK_PHASE_TO_CODE.get(status.phase)
+    if phase_code is None:
+        raise ProtocolError(f"unknown task phase {status.phase!r}")
+    return (bytes([TASK_FRAME_VERSION, ]) + _task_pack_str(status.name) + bytes([phase_code])
+            + _task_pack_str(status.owner) + struct.pack("<I", status.attempt)
+            + _task_pack_str(status.token)
+            + struct.pack("<q", status.lease_until_nanos)
+            + struct.pack("<q", status.next_due_nanos)
+            + _task_pack_blob(status.checkpoint) + _task_pack_refs(status.refs)
+            + _task_pack_blob(status.outcome) + _task_pack_str(status.last_error))
+
+
+def decode_task_status(data: bytes) -> TaskStatus:
+    off = _task_read_version(data)
+    name, off = _task_read_str(data, off, TASK_MAX_NAME_LEN)
+    if off + 1 > len(data):
+        raise ProtocolError("task status truncated (phase)")
+    phase = _TASK_CODE_TO_PHASE.get(data[off])
+    if phase is None:
+        raise ProtocolError(f"unknown task phase code {data[off]}")
+    off += 1
+    owner, off = _task_read_str(data, off, TASK_MAX_WORKER_LEN)
+    if off + 4 > len(data):
+        raise ProtocolError("task status truncated (attempt)")
+    (attempt,) = struct.unpack_from("<I", data, off)
+    off += 4
+    token, off = _task_read_str(data, off, TASK_MAX_TOKEN_LEN)
+    if off + 16 > len(data):
+        raise ProtocolError("task status truncated (times)")
+    lease_until, next_due = struct.unpack_from("<qq", data, off)
+    off += 16
+    checkpoint, off = _task_read_blob(data, off, TASK_MAX_BLOB_LEN)
+    refs, off = _task_read_refs(data, off)
+    outcome, off = _task_read_blob(data, off, TASK_MAX_BLOB_LEN)
+    last_error, off = _task_read_str(data, off, TASK_MAX_REASON_LEN)
+    if off != len(data):
+        raise ProtocolError("task status frame trailing bytes")
+    return TaskStatus(name=name, phase=phase, owner=owner, attempt=attempt, token=token,
+                      lease_until_nanos=lease_until, next_due_nanos=next_due,
+                      checkpoint=checkpoint, refs=refs, outcome=outcome, last_error=last_error)
