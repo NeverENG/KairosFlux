@@ -52,7 +52,7 @@ For the original separation rationale, see the [historical bannet refactoring RF
 | [internal/credit/](../../internal/credit/) | Byte budget and write backpressure for unflushed data. |
 | [internal/metrics/](../../internal/metrics/) | Server/storage counters and runtime metrics. |
 | [internal/identity/](../../internal/identity/) | Shared agent-source role and Proposal key-prefix checks. |
-| [internal/aiplane/](../../internal/aiplane/) | Go-side Context, Proposal, similarity, and evidence graph; not pre-built Python tools. |
+| [internal/aiplane/](../../internal/aiplane/) | Go-side Context (including task states and open proposals), Proposal, engine-side Verdict, similarity, and evidence graph; not pre-built Python tools. |
 | [internal/taskplane/](../../internal/taskplane/) | Pure task state machine (claim/checkpoint/complete/fail, lease expiry as a read-time check); IO shell is `service/task_store.go`. |
 
 ## Optional and pending removal

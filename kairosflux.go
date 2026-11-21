@@ -128,6 +128,18 @@ type (
 	// contracts/aiplane/context.schema.json）。
 	ContextBundle = aiplane.ContextBundle
 
+	// TaskStateSummary / ProposalSummary 是 Context 决策面的条目：
+	// 任务进度与待裁决提议（见 internal/aiplane）。
+	TaskStateSummary = aiplane.TaskStateSummary
+	ProposalSummary  = aiplane.ProposalSummary
+
+	// Verdict / VerdictDecision / VerdictValidationError 是提议裁决记录
+	// （引擎身份写入 verdict:{fingerprint}，字段契约见
+	// contracts/aiplane/verdict.schema.json）。
+	Verdict                = aiplane.Verdict
+	VerdictDecision        = aiplane.VerdictDecision
+	VerdictValidationError = aiplane.VerdictValidationError
+
 	// WriteEnvelope 是 LIST_WRITES 返回的单条审计信封
 	// （LogicalKey/Seq/WriteNanos/Source/SchemaVer/PersistedHash/Payload/
 	// HashOK，见 service.WriteEnvelope）。
@@ -159,6 +171,13 @@ const (
 	TaskPhaseSucceeded = taskplane.PhaseSucceeded
 	TaskPhaseFailed    = taskplane.PhaseFailed
 	TaskPhaseAbandoned = taskplane.PhaseAbandoned
+)
+
+// VerdictDecision 常量（值即 aiplane 的枚举值）。
+const (
+	VerdictAccept            = aiplane.VerdictAccept
+	VerdictReject            = aiplane.VerdictReject
+	VerdictNeedsMoreEvidence = aiplane.VerdictNeedsMoreEvidence
 )
 
 // ProposalKind 常量（值即 aiplane 的枚举值，跨仓调用方不需要 import
@@ -394,6 +413,20 @@ func (e *Engine) FailTask(name, token, reason string, retryable bool) (TaskStatu
 // GetTask 返回任务当前状态；found=false 表示从未写入过。
 func (e *Engine) GetTask(name string) (TaskStatus, bool, error) {
 	return e.task.Status(name)
+}
+
+// AdjudicateProposal 以引擎身份落一条提议裁决（verdict:{fingerprint}）。
+// 被裁决的提议必须存在；同一份裁决内容重复提交是幂等 no-op（seq=0）。
+// agent 身份不能调用这条路径自批提议——裁决写入固定走引擎角色，
+// 与 SubmitProposal 只接受 agent 写入对称。
+func (e *Engine) AdjudicateProposal(v Verdict) (uint64, error) {
+	return aiplane.Adjudicate(e.rw, v)
+}
+
+// GetVerdict 读取某条提议在 asOfNanos 时刻可见的裁决；未裁决时
+// found=false（"还没裁决"不是错误）。
+func (e *Engine) GetVerdict(proposalFingerprint string, asOfNanos int64) (Verdict, bool, error) {
+	return aiplane.LookupVerdict(e.rw, proposalFingerprint, asOfNanos)
 }
 
 // Addr 返回 server 模式的监听地址（Host:Port）。embedded 模式返回空串。
