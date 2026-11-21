@@ -95,10 +95,16 @@ type Completion struct {
 	Outcome    []byte
 }
 
-// SpecKey / StatusKey 是任务对象在账本里的逻辑键。前缀属于键空间契约，
-// 跨语言客户端按同一规则读写。
-func SpecKey(name string) string   { return "task:spec:" + name }
-func StatusKey(name string) string { return "task:status:" + name }
+// 任务对象在账本里的键空间前缀。它们是跨语言契约的一部分：PrefixLister
+// 类读取（如 Context 组装）按这些前缀扫描，不会靠字符串字面量各自维护。
+const (
+	SpecKeyPrefix   = "task:spec:"
+	StatusKeyPrefix = "task:status:"
+)
+
+// SpecKey / StatusKey 是任务对象在账本里的逻辑键。
+func SpecKey(name string) string   { return SpecKeyPrefix + name }
+func StatusKey(name string) string { return StatusKeyPrefix + name }
 
 // Terminal 报告该阶段是否处于"休息态"（不会再被当前 attempt 改变）。
 func (s Status) Terminal() bool {

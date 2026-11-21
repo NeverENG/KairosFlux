@@ -8,6 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/ChronoBrew/KairosFlux/internal/identity"
+	"github.com/ChronoBrew/KairosFlux/internal/taskplane"
 )
 
 // Package aiplane 的 Context API（任务书第 1 项）：为研究员 agent 组装
@@ -64,6 +67,31 @@ type FactorTestSummary struct {
 	TestIndex             int    `json:"test_index"`
 }
 
+// TaskStateSummary 是"研究进度"这一项的一条记录：任务的最新状态（由
+// taskplane.Status 折叠而来）。checkpoint 的原始内容不进 Context——执行体
+// 通过 GetTask/ClaimTask 读取自己持有的任务细节；上下文只回答"有哪些任务、
+// 各处于什么阶段、下一次何时到期"，让 agent 决定要不要 claim。
+type TaskStateSummary struct {
+	Name         string `json:"name"`
+	Phase        string `json:"phase"`
+	Owner        string `json:"owner,omitempty"`
+	Attempt      uint32 `json:"attempt,omitempty"`
+	NextDueNanos int64  `json:"next_due_nanos,omitempty"`
+	LastError    string `json:"last_error,omitempty"`
+}
+
+// ProposalSummary 是"待裁决提议"这一项的一条记录。只含决策所需字段，
+// Detail 不出现在上下文里——agent 需要完整提议时按 fingerprint 单独读
+// proposal:{fingerprint}。
+type ProposalSummary struct {
+	Fingerprint           string `json:"fingerprint"`
+	Kind                  string `json:"kind"`
+	SubmittedBy           string `json:"submitted_by"`
+	FactorName            string `json:"factor_name,omitempty"`
+	ExperimentFingerprint string `json:"experiment_fingerprint,omitempty"`
+	Summary               string `json:"summary"`
+}
+
 // ContextBundle 是 BuildContext 的输出（契约文件 contracts/aiplane/context.schema.json
 // 是本结构体面向跨仓调用方的协议描述）。
 type ContextBundle struct {
@@ -74,6 +102,11 @@ type ContextBundle struct {
 	StrategyStates     []StrategyObject      `json:"strategy_states"`
 	RiskRedlines       []RiskRedline         `json:"risk_redlines"`
 	RiskRedlinesDigest string                `json:"risk_redlines_digest"`
+	// 以下三组是"决策面"：agent 据此决定下一步做什么，而不是靠外部提示词
+	// 描述工作队列。全部按名字升序，as_of 语义与其它字段一致。
+	TaskStates    []TaskStateSummary `json:"task_states"`
+	OpenProposals []ProposalSummary  `json:"open_proposals"`
+	Verdicts      []Verdict          `json:"verdicts"`
 	// ContextFingerprint 是对本结构体除自身之外全部字段的 sha256 摘要
 	// （canonicalBundleForFingerprint，不含 ContextFingerprint 字段本身，
 	// 否则"指纹依赖于包含指纹的字节"是一个无法闭合的自指定义）。
@@ -90,6 +123,9 @@ type canonicalBundleForFingerprint struct {
 	StrategyStates     []StrategyObject      `json:"strategy_states"`
 	RiskRedlines       []RiskRedline         `json:"risk_redlines"`
 	RiskRedlinesDigest string                `json:"risk_redlines_digest"`
+	TaskStates         []TaskStateSummary    `json:"task_states"`
+	OpenProposals      []ProposalSummary     `json:"open_proposals"`
+	Verdicts           []Verdict             `json:"verdicts"`
 }
 
 // loadContracts 按文件名排序读取 contractsDir 下全部 *.schema.json，解析出
@@ -159,6 +195,73 @@ func listStrategyStates(lister PrefixLister, asOfNanos int64) ([]StrategyObject,
 	return out, nil
 }
 
+// listTaskStates 扫描 task:status: 前缀，折叠成每个任务的当前状态，按 Name
+// 升序。任务规格（task:spec:）不读：上下文只需要"有哪些任务在跑/待跑"，
+// 节奏参数属于执行体自己的细节。
+func listTaskStates(lister PrefixLister, asOfNanos int64) ([]TaskStateSummary, error) {
+	entries, err := lister.ListPrefix(taskplane.StatusKeyPrefix, asOfNanos)
+	if err != nil {
+		return nil, fmt.Errorf("扫描 %s 失败: %w", taskplane.StatusKeyPrefix, err)
+	}
+	latest := LatestPerLogicalKey(entries)
+	out := make([]TaskStateSummary, 0, len(latest))
+	for _, e := range latest {
+		var st taskplane.Status
+		if json.Unmarshal(e.Payload, &st) != nil {
+			continue
+		}
+		if st.Name == "" {
+			st.Name = e.LogicalKey[len(taskplane.StatusKeyPrefix):]
+		}
+		out = append(out, TaskStateSummary{
+			Name:         st.Name,
+			Phase:        string(st.Phase),
+			Owner:        st.Owner,
+			Attempt:      st.Attempt,
+			NextDueNanos: st.NextDueNanos,
+			LastError:    st.LastError,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+// listOpenProposals 返回尚未被裁决的提议，按 fingerprint 升序。"已裁决"以
+// as_of 时刻可见的 verdict 记录为准；裁决结论本身通过 ContextBundle.Verdicts
+// 一并给出，agent 因此能区分"从没提过"和"提过但被否"。
+func listOpenProposals(lister PrefixLister, asOfNanos int64, verdicts []Verdict) ([]ProposalSummary, error) {
+	adjudicated := make(map[string]bool, len(verdicts))
+	for _, v := range verdicts {
+		adjudicated[v.Fingerprint] = true
+	}
+	entries, err := lister.ListPrefix(identity.ProposalKeyPrefix, asOfNanos)
+	if err != nil {
+		return nil, fmt.Errorf("扫描 %s 失败: %w", identity.ProposalKeyPrefix, err)
+	}
+	latest := LatestPerLogicalKey(entries)
+	out := make([]ProposalSummary, 0, len(latest))
+	for _, e := range latest {
+		fp := e.LogicalKey[len(identity.ProposalKeyPrefix):]
+		if adjudicated[fp] {
+			continue
+		}
+		var p Proposal
+		if json.Unmarshal(e.Payload, &p) != nil {
+			continue
+		}
+		out = append(out, ProposalSummary{
+			Fingerprint:           fp,
+			Kind:                  string(p.Kind),
+			SubmittedBy:           p.SubmittedBy,
+			FactorName:            p.FactorName,
+			ExperimentFingerprint: p.ExperimentFingerprint,
+			Summary:               p.Summary,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Fingerprint < out[j].Fingerprint })
+	return out, nil
+}
+
 // BuildContext 组装一份确定性上下文包。contractsDir 通常是仓库的
 // contracts/ 目录，redlinesPath 通常是 riskredlines/redlines.json（两者都
 // 是调用方传入的路径，本函数不硬编码；生产用法见
@@ -190,6 +293,18 @@ func BuildContext(rw ReadWriter, req ContextRequest, contractsDir, redlinesPath 
 	if err != nil {
 		return ContextBundle{}, err
 	}
+	taskStates, err := listTaskStates(rw, req.AsOfNanos)
+	if err != nil {
+		return ContextBundle{}, err
+	}
+	verdicts, err := ListVerdicts(rw, req.AsOfNanos)
+	if err != nil {
+		return ContextBundle{}, err
+	}
+	openProposals, err := listOpenProposals(rw, req.AsOfNanos, verdicts)
+	if err != nil {
+		return ContextBundle{}, err
+	}
 
 	canon := canonicalBundleForFingerprint{
 		AsOfNanos:          req.AsOfNanos,
@@ -199,6 +314,9 @@ func BuildContext(rw ReadWriter, req ContextRequest, contractsDir, redlinesPath 
 		StrategyStates:     strategyStates,
 		RiskRedlines:       redlines,
 		RiskRedlinesDigest: redlinesDigest,
+		TaskStates:         taskStates,
+		OpenProposals:      openProposals,
+		Verdicts:           verdicts,
 	}
 	canonBytes, err := json.Marshal(canon)
 	if err != nil {
@@ -214,6 +332,9 @@ func BuildContext(rw ReadWriter, req ContextRequest, contractsDir, redlinesPath 
 		StrategyStates:     canon.StrategyStates,
 		RiskRedlines:       canon.RiskRedlines,
 		RiskRedlinesDigest: canon.RiskRedlinesDigest,
+		TaskStates:         canon.TaskStates,
+		OpenProposals:      canon.OpenProposals,
+		Verdicts:           canon.Verdicts,
 		ContextFingerprint: hex.EncodeToString(sum[:]),
 	}, nil
 }

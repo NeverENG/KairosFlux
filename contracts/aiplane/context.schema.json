@@ -1,8 +1,8 @@
 {
   "type_id": 3,
   "name": "context_bundle",
-  "schema_version": 1,
-  "schema_version_note": "M4 AI 数据平面首版。这是响应契约（Context API 返回给 agent 的只读上下文包），不是写入类型——因此没有 key_prefix/idempotency_key 这类写路径字段；type_id 只是为了与 quote/proposal 两份契约保持同一份文档格式，不代表本类型会走 PUT_VERSIONED 写路径。",
+  "schema_version": 2,
+  "schema_version_note": "v2 在 M4 首版基础上新增决策面三字段（task_states/open_proposals/verdicts），使 agent 能从上下文里直接看到研究进度与待裁决提议，而不是靠外部提示词描述工作队列。这是响应契约（Context API 返回给 agent 的只读上下文包），不是写入类型——因此没有 key_prefix/idempotency_key 这类写路径字段；type_id 只是为了与 quote/proposal 两份契约保持同一份文档格式，不代表本类型会走 PUT_VERSIONED 写路径。",
   "producer": "KairosFlux(internal/aiplane.BuildContext)",
   "consumers": ["QuantScout 研究员 Agent（或任何遵守本协议的 agent 客户端）"],
   "determinism_contract": {
@@ -19,7 +19,10 @@
     "strategy_states": "数组，每项 {name, phase}，来自 strategy:obj: 前缀，按 name 排序；phase 取值见 internal/researchdata.StrategyPhase（hypothesis/gate/candidate/paper/live/retired）。",
     "risk_redlines": "数组，每项 {id, description, applies_to_phase}，来自 riskredlines/redlines.json，按 id 排序。",
     "risk_redlines_digest": "string，riskredlines/redlines.json 原始字节的 sha256 十六进制摘要。",
+    "task_states": "数组，每项 {name, phase, owner, attempt, next_due_nanos, last_error}，来自 task:status: 前缀的最新版本，按 name 升序；phase 取值见 internal/taskplane（idle/running/succeeded/failed/abandoned）。不含 checkpoint 内容——执行体按任务名读取自己的断点。",
+    "open_proposals": "数组，每项 {fingerprint, kind, submitted_by, factor_name, experiment_fingerprint, summary}，来自 proposal: 前缀中尚未被裁决的提议，按 fingerprint 升序。是否已裁决以同一 as_of 下的 verdict 记录为准。",
+    "verdicts": "数组，每项为 verdict 对象（见 contracts/aiplane/verdict.schema.json），按 fingerprint 升序；含已裁决提议的结论与依据，agent 据此避免重复提出被否的假设。",
     "context_fingerprint": "string，见 determinism_contract.context_fingerprint。"
   },
-  "known_limitation": "as_of_nanos 目前只贯穿账本读取（strategy:index/strategy:obj 前缀扫描 + 单键读取），不覆盖 contracts/*.schema.json 与 riskredlines/redlines.json 这两份文件——它们没有版本化写入语义（不走 PUT_VERSIONED），只是磁盘上的当前文件内容；as_of 语义对这两者退化为“调用时磁盘上的内容”，这是本次任务的已知边界，不是 bug。"
+  "known_limitation": "as_of_nanos 贯穿账本读取（strategy:index/strategy:obj/task:status/proposal:/verdict: 前缀扫描），不覆盖 contracts/*.schema.json 与 riskredlines/redlines.json 这两份文件——它们没有版本化写入语义（不走 PUT_VERSIONED），只是磁盘上的当前文件内容；as_of 语义对这两者退化为“调用时磁盘上的内容”，这是已知边界，不是 bug。"
 }

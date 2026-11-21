@@ -37,7 +37,7 @@ QuantBrew（Rust）───┘                                      │
 | 持久化存储 | 单机 WAL、LSM（MemTable、SSTable、压缩、范围扫描），重启后恢复；可选 Raft/分片路径 |
 | 数据入口 | Kair v1 基础 KV/SCAN、v2 版本化读写和审计 |
 | 契约 | 服务端启动加载 `contracts/*.schema.json` 并校验已注册类型；Go 嵌入式 `Engine` 不自动加载这些文件 |
-| AI 数据平面 | Go 嵌入式 `BuildContext`/`SubmitProposal`、提议与证据查询的现有实现；不是完整的网络侧 Agent 工具集 |
+| AI 数据平面 | Go 嵌入式 `BuildContext`（数据集、测过因子、策略状态、风控红线、任务进度、待裁决提议、历史裁决）、`SubmitProposal` 与引擎侧 `AdjudicateProposal`；不是完整的网络侧 Agent 工具集 |
 | 任务进度 | 版本化任务状态：租约 claim、断点 checkpoint/续跑、结构化错误；执行体留在数据库之外（`TASK_*` opcode、Go `Engine`、Python 客户端） |
 
 **明确边界：** 行情示例使用 `quote:<日期>:<代码>` 的普通 PUT；单股过去 N 天的记录在键空间不连续。当前业务 `SCAN` 最多返回 10,000 条，且跨分片扫描不会自动汇总。股票优先布局、完整的序列查询与旧数据离线迁移仍在设计/验证阶段；这里不把目标当作已交付特性。[架构与现状](docs/zh-CN/architecture.md)列出更多实现边界。

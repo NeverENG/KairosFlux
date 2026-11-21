@@ -52,7 +52,7 @@
 | [internal/credit/](../../internal/credit/) | 未 flush 数据的字节预算与写入背压。 |
 | [internal/metrics/](../../internal/metrics/) | 服务和存储的计数器/运行指标。 |
 | [internal/identity/](../../internal/identity/) | Agent 来源角色及 Proposal 键前缀的共享判定。 |
-| [internal/aiplane/](../../internal/aiplane/) | Context、Proposal、相似度与证据图谱的 Go 侧实现；不要理解成现成 Python 工具。 |
+| [internal/aiplane/](../../internal/aiplane/) | Context（含任务进度与待裁决提议）、Proposal、引擎侧 Verdict、相似度与证据图谱的 Go 侧实现；不要理解成现成 Python 工具。 |
 | [internal/taskplane/](../../internal/taskplane/) | 纯任务状态机（claim/checkpoint/complete/fail，租约过期是读时判定）；IO 壳在 `service/task_store.go`。 |
 
 ## 可选与待移除部分

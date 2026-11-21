@@ -310,6 +310,44 @@ func TestEngineProposalAndContext(t *testing.T) {
 	if b1.ContractsDigest == "" || b1.RiskRedlinesDigest == "" {
 		t.Fatal("契约/红线摘要不应为空")
 	}
+
+	// 决策面：未裁决提议必须出现在 open_proposals 里（这是 agent 的待办队列）。
+	if len(b1.OpenProposals) != 1 || b1.OpenProposals[0].Fingerprint != fp {
+		t.Fatalf("OpenProposals = %+v, want 刚提交的提议 %s", b1.OpenProposals, fp)
+	}
+	if len(b1.Verdicts) != 0 {
+		t.Fatalf("尚未裁决时 Verdicts 应为空: %+v", b1.Verdicts)
+	}
+
+	// 引擎裁决后：提议离开待裁决队列，结论进 verdicts（agent 不会重复提出被否假设）。
+	if _, err := e.AdjudicateProposal(kairosflux.Verdict{
+		Fingerprint: fp,
+		Decision:    kairosflux.VerdictReject,
+		Rationale:   "族内 Bonferroni 校正后不显著",
+		DecidedBy:   "engine",
+		DecidedAt:   "2026-11-21",
+	}); err != nil {
+		t.Fatalf("AdjudicateProposal: %v", err)
+	}
+	b3, err := e.BuildContext(req, contractsDir, redlinesPath)
+	if err != nil {
+		t.Fatalf("BuildContext #3: %v", err)
+	}
+	if len(b3.OpenProposals) != 0 {
+		t.Fatalf("已裁决提议不应留在 open_proposals: %+v", b3.OpenProposals)
+	}
+	if len(b3.Verdicts) != 1 || b3.Verdicts[0].Decision != kairosflux.VerdictReject {
+		t.Fatalf("Verdicts = %+v, want 一条 reject", b3.Verdicts)
+	}
+	if b3.ContextFingerprint == b1.ContextFingerprint {
+		t.Fatal("裁决落账后上下文指纹应变化")
+	}
+
+	// 裁决可单独按 as-of 读回。
+	got, found, err := e.GetVerdict(fp, time.Now().UnixNano()+1e9)
+	if err != nil || !found || got.Rationale != "族内 Bonferroni 校正后不显著" {
+		t.Fatalf("GetVerdict = %+v found=%v err=%v", got, found, err)
+	}
 }
 
 // TestEngineTaskLifecycle 覆盖 embedded 模式的 task plane 全链路：
