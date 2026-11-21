@@ -48,6 +48,10 @@ const (
 	KindStrategyObject   ObjectKind = "strategy_object"
 	KindPaperAccount     ObjectKind = "paper_account"
 	KindReview           ObjectKind = "review"
+	// KindVerdict 是提议裁决记录（verdict:{fingerprint}）。只有引擎身份可写：
+	// agent 不能自批自己的提议，这是"agent 只提议、引擎裁决"在 kind 层面的
+	// 落点（WriteAsAgent 只放行 KindProposal）。
+	KindVerdict ObjectKind = "verdict"
 )
 
 // UnauthorizedWriteError 是"越权写数据"的结构化拒绝（任务书验收标准第一条：
