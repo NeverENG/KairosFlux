@@ -1,0 +1,35 @@
+{
+  "type_id": 4,
+  "name": "verdict",
+  "schema_version": 1,
+  "schema_version_note": "提议裁决记录首版。与 proposal.schema.json 对称：proposal 由 agent 写、不可变；verdict 由引擎写、同样是版本化记录。裁决不是对 proposal 的修改——proposal 的历史永远保留原样，裁决是另一条独立账本记录，可按 as_of 回溯。",
+  "key_prefix": "verdict:",
+  "key_layout": {
+    "delimiter": ":",
+    "fields": ["prefix", "proposal_fingerprint"]
+  },
+  "producer": "KairosFlux(internal/aiplane.Adjudicate，引擎身份写入)",
+  "consumers": ["QuantScout 研究员 Agent（读待裁决提议与历史判决）", "KairosFlux Context API"],
+  "pit_semantics": "verdict 走时态版本语义：写入后不可变，读取一律带 as_of 上界。同一提议出现多条不同结论在账本里可见（LIST_VERSIONS），不隐藏历史；是否允许相互矛盾的裁决由上层裁决流程负责。",
+  "idempotency_key": ["proposal_fingerprint + 裁决内容全字段"],
+  "required_fields": ["fingerprint", "decision", "rationale", "decided_by"],
+  "enum_fields": {
+    "decision": ["accept", "reject", "needs_more_evidence"]
+  },
+  "write_authorization": {
+    "allowed_role": "engine",
+    "rule": "agent 身份只能写 proposal: 键空间（identity.IsProposalKey）；verdict 由引擎身份写入，agent 不能自批自己的提议。",
+    "integrity_check": "被裁决的 proposal:{fingerprint} 必须存在，否则拒绝写入（拒绝凭空裁决）。"
+  },
+  "error_codes": {
+    "validation_failed": "aiplane.VerdictValidationError（字段名+原因，见 internal/aiplane/verdict.go）"
+  },
+  "known_limitation": "裁决只记录结论与依据文本，不内联证据对象；rationale 里引用的实验/数据按 fingerprint 或逻辑键由读取方自行解析，本仓库不校验引用是否存在。",
+  "example": {
+    "fingerprint": "9f2c0d1e...",
+    "decision": "reject",
+    "rationale": "p_global=0.17，族内 Bonferroni 校正后不显著",
+    "decided_by": "engine",
+    "decided_at": "2026-11-21"
+  }
+}
